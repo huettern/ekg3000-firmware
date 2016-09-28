@@ -14,6 +14,8 @@
 #include "usbcfg.h"
 #include "usbcdc.h"
 
+#include "esp8266.h"
+
 
 #define usb_lld_connect_bus(usbp)
 #define usb_lld_disconnect_bus(usbp)
@@ -63,10 +65,24 @@ static void cmd_threads(BaseSequentialStream *chp, int argc, char *argv[]) {
     tp = chRegNextThread(tp);
   } while (tp != NULL);
 }
+static void cmd_initesp(BaseSequentialStream *chp, int argc, char *argv[]) {
+  espInit();
+}
+static void cmd_espterm(BaseSequentialStream *chp, int argc, char *argv[]) {
+  espTerm(argv[0]);
+}
+
+static void cmd_espRead(BaseSequentialStream *chp, int argc, char *argv[]) {
+  espRead();
+}
+
 
 static const ShellCommand commands[] = {
 		{"mem", cmd_mem},
 		{"threads", cmd_threads},
+    {"espinit", cmd_initesp},
+    {"esp", cmd_espterm},
+    {"espread", cmd_espRead},
 		{NULL, NULL}
 };
 
