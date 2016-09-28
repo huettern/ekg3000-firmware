@@ -17,7 +17,7 @@
 #include "ch.h"
 #include "hal.h"
 
-#include "ChibiOS/os/hal/lib/streams/chprintf.h"
+#include "chprintf.h"
 
 #define usb_lld_connect_bus(usbp)
 #define usb_lld_disconnect_bus(usbp)
@@ -31,7 +31,25 @@
 /* Virtual serial port over USB.*/
 SerialUSBDriver SDU1;
 
-static float mdps_per_digit = 8.75;
+/*
+ * Working area for the LED flashing thread.
+ */
+static THD_WORKING_AREA(myThreadWorkingArea, 128);
+ 
+/*
+ * LED flashing thread.
+ */
+static THD_FUNCTION(myThread, arg) {
+ 
+  while (true) {
+    palSetPad(GPIOB, 0);
+    chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
+    chThdSleepMilliseconds(500);
+    palClearPad(GPIOB, 0);
+    // chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
+    chThdSleepMilliseconds(500);
+  }
+}
 
 /*
  * Application entry point.
@@ -68,6 +86,10 @@ int main(void) {
    */
 
   palSetPadMode(GPIOB, 0, PAL_MODE_OUTPUT_PUSHPULL); /* PD4 */
+
+   /* Starting the flashing LEDs thread.*/
+  (void)chThdCreateStatic(myThreadWorkingArea, sizeof(myThreadWorkingArea),
+                          NORMALPRIO, myThread, NULL);
   /*
    * Normal main() thread activity, in this demo it does nothing except
    * sleeping in a loop and check the button state, when the button is
@@ -75,9 +97,11 @@ int main(void) {
    */
   while (true) {
     // palSetPad(GPIOB, 0);
+    // chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
     // chThdSleepMilliseconds(500);
     // palClearPad(GPIOB, 0);
-    //chThdSleepMilliseconds(500);
-    chprintf((BaseSequentialStream *)&SDU1, "HELLO WORLD\n\r");
+    // chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
+    // chThdSleepMilliseconds(500);
+    chThdSleepMilliseconds(1000);
   }
 }

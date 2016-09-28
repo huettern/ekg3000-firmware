@@ -146,8 +146,8 @@ ASMSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
 INCDIR = $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
          $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) \
-         $(CHIBIOS)/os/various
-
+         $(CHIBIOS)/os/various $(CHIBIOS)/os/hal/lib/streams
+ 
 #
 # Project, sources and paths
 ##############################################################################
@@ -216,3 +216,6 @@ ULIBS =
 
 RULESPATH = $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk
+
+flash:
+	st-flash write build/pro3-firmware.bin 0x8000000
