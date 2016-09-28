@@ -44,10 +44,10 @@ static THD_FUNCTION(myThread, arg) {
   while (true) {
     palSetPad(GPIOB, 0);
     chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
-    chThdSleepMilliseconds(500);
+    chThdSleepMilliseconds(50);
     palClearPad(GPIOB, 0);
     // chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
-    chThdSleepMilliseconds(500);
+    chThdSleepMilliseconds(50);
   }
 }
 
