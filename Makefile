@@ -87,18 +87,21 @@ PROJECT = pro3-firmware
 
 # Imported source files and paths
 CHIBIOS = ChibiOS/
+ESP8266 = ./esp8266
+
 # Startup files.
 include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/startup_stm32f3xx.mk
 # HAL-OSAL files (optional).
 include $(CHIBIOS)/os/hal/hal.mk
-include $(CHIBIOS)/os/hal/ports/STM32/STM32F37x/platform.mk
-include $(CHIBIOS)/os/hal/boards/ST_STM32373C_EVAL/board.mk
+	include $(CHIBIOS)/os/hal/ports/STM32/STM32F37x/platform.mk
+	include $(CHIBIOS)/os/hal/boards/ST_STM32373C_EVAL/board.mk
 include $(CHIBIOS)/os/hal/osal/rt/osal.mk
 # RTOS files (optional).
 include $(CHIBIOS)/os/rt/rt.mk
 include $(CHIBIOS)/os/rt/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
 # Other files (optional).
 include $(CHIBIOS)/test/rt/test.mk
+include $(ESP8266)/esp8266.mk
 
 # Define linker script file here
 LDSCRIPT= $(STARTUPLD)/STM32F373xC.ld
@@ -114,8 +117,11 @@ CSRC = $(STARTUPSRC) \
        $(BOARDSRC) \
        $(TESTSRC) \
        $(CHIBIOS)/os/hal/lib/streams/chprintf.c \
+       $(CHIBIOS)/os/various/shell.c \
+       $(ESP8266SRC) \
        usbcfg.c \
-       main.c
+       main.c \
+       usbcdc.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -146,7 +152,8 @@ ASMSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
 INCDIR = $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
          $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) \
-         $(CHIBIOS)/os/various $(CHIBIOS)/os/hal/lib/streams
+         $(CHIBIOS)/os/various $(CHIBIOS)/os/hal/lib/streams \
+         $(ESP8266INC)
  
 #
 # Project, sources and paths
@@ -202,7 +209,7 @@ UDEFS =-DCHPRINTF_USE_FLOAT=1
 UADEFS =
 
 # List all user directories here
-UINCDIR =
+UINCDIR = .
 
 # List the user directory to look for the libraries here
 ULIBDIR =
@@ -217,5 +224,5 @@ ULIBS =
 RULESPATH = $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk
 
-flash:
+flash: all
 	st-flash write build/pro3-firmware.bin 0x8000000

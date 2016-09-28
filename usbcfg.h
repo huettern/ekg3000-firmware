@@ -17,8 +17,11 @@
 #ifndef _USBCFG_H_
 #define _USBCFG_H_
 
+/* Virtual serial port over USB.*/
+extern SerialUSBDriver SDU1;
+
 extern const USBConfig usbcfg;
-extern SerialUSBConfig serusbcfg;
+extern const SerialUSBConfig serusbcfg;
 
 #endif  /* _USBCFG_H_ */
 
