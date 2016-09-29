@@ -80,8 +80,21 @@ typedef struct {
   char retstr[100];
 } EspReturn;
 
+enum wifiModes {
+      WIFI_MODE_STA = 1,
+      WIFI_MODE_AP,
+      WIFI_MODE_APSTA
+};
 
-void espInit(void);
+
+// A variant of the same function, but takes a function
+// pointer which will be called for each line encountered.
+typedef void (*responselinehandler)(const char * data, int len);
+int esp8266ReadLinesUntil(char * resp, responselinehandler handler);
+typedef void (*onNewAP)(APInfo * info);
+
+
+int espInit(void);
 void espTerm(char* str);
 
 void espRead(void);

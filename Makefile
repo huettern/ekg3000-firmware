@@ -117,11 +117,13 @@ CSRC = $(STARTUPSRC) \
        $(BOARDSRC) \
        $(TESTSRC) \
        $(CHIBIOS)/os/hal/lib/streams/chprintf.c \
+       $(CHIBIOS)/os/hal/lib/streams/memstreams.c \
        $(CHIBIOS)/os/various/shell.c \
        $(ESP8266SRC) \
        usbcfg.c \
        main.c \
-       usbcdc.c
+       usbcdc.c \
+       util.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
