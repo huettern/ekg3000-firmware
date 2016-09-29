@@ -18,6 +18,8 @@
 #include "hal.h"
 #include "wifichannel.h"
 
+#include "wifiapp.h"
+
 #include "chprintf.h"
 
 // #define usb_lld_connect_bus(usbp)
@@ -91,8 +93,10 @@ int main(void) {
     palClearPad(GPIOB, 0);
 
 
-    chThdSleepMilliseconds(10000);
-    wifiInitX();
+    chThdSleepMilliseconds(5000);
+    // wifiInitX();
+    // espRead();
+    wifiStart();
 
   while (true) {
     // palSetPad(GPIOB, 0);
