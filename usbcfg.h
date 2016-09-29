@@ -23,7 +23,7 @@ extern SerialUSBDriver SDU1;
 extern const USBConfig usbcfg;
 extern const SerialUSBConfig serusbcfg;
 
-#define stdio (BaseSequentialStream *)&SDU1
+#define bssusb (BaseSequentialStream *)&SDU1
 
 #endif  /* _USBCFG_H_ */
 

@@ -80,19 +80,69 @@ typedef struct {
   char retstr[100];
 } EspReturn;
 
-enum wifiModes {
-      WIFI_MODE_STA = 1,
-      WIFI_MODE_AP,
-      WIFI_MODE_APSTA
-};
+SerialDriver * getSerialDriver(void);
 
+// Right now, there can be one user of
+// the 8266 at any point of time.
+// I still have to find a way to multiplex
+// the usage (specially the read part) of the
+// 8266 on multiple threads.
+//void esp8266Lock(void);
+//void esp8266Unlock(void);
 
+// Checks the usart buffer if data
+// is present
+bool esp8266HasData(void);
+// Read esp8266 untill a certain string is received.
+// Read (discard characters read), until resp is read
+bool esp8266ReadUntil(const char * resp, int timeout);
+// Read to buffer/len until resp is read (resp will be
+// included in the buffer). Returns number of bytes read
+// or negative if len can not hold the number of bytes
+// needed to be read.
+int esp8266ReadBuffUntil(char * buffer, int len, const char * resp, int timeout);
 // A variant of the same function, but takes a function
 // pointer which will be called for each line encountered.
 typedef void (*responselinehandler)(const char * data, int len);
 int esp8266ReadLinesUntil(char * resp, responselinehandler handler);
-typedef void (*onNewAP)(APInfo * info);
 
+// Request - Response communication
+// to the esp8266 chip
+bool esp8266Cmd(const char * cmd, const char * rsp, int cmddelay);
+int esp8266CmdCallback(const char *cmd, const char * rsp, responselinehandler handler);
+
+// variation of the above, without the \r\n
+// bool esp8266Dta(const char * cmd, const char * rsp, int cmddelay);
+int esp8266CmdRsp(const char * cmd, const char * term, char * buffer, int buflen, int respline);
+
+
+// ESP8266 Routines
+// int esp8266Init(SerialDriver * driver, int mode, SerialDriver * dbg);
+int esp8266ConnectAP(const char *ssid, const char *password);
+bool esp8266DisconnectAP(void);
+typedef void (*onNewAP)(APInfo * info);
+int esp8266ListAP(onNewAP apCallback);
+// Get the status of the connection
+typedef void (*onIPStatus)(IPStatus * info);
+typedef void (*onConStatus)(ConStatus * info);
+int esp8266GetIpStatus(onIPStatus iphandler, onConStatus stathandler);
+//int esp8266GetIpStatus(int channel);
+const char * esp8266GetFirmwareVersion(void);
+const char * esp8266GetIPAddress(void);
+bool esp8266SetMode(int mode);
+
+// Client API
+int esp8266Server(int channel, int type, uint16_t port);
+int esp8266Connect(int channel, const char * ip, uint16_t port, int type);
+bool esp8266SendLine(int channel, const char * str);
+
+bool esp8266SendHeader(int channel, int datatosend);
+int esp8266Send(const char * data, int len, bool waitforok);
+
+int esp8266ReadRespHeader(int * channel, int * param, int timeout);
+int esp8266Read(char * buffer, int buflen);
+
+bool esp8266Disconnect(int channel);
 
 int espInit(void);
 void espTerm(char* str);

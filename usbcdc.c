@@ -15,6 +15,7 @@
 #include "usbcdc.h"
 
 #include "esp8266.h"
+#include "wifichannel.h"
 
 
 #define usb_lld_connect_bus(usbp)
@@ -65,15 +66,36 @@ static void cmd_threads(BaseSequentialStream *chp, int argc, char *argv[]) {
     tp = chRegNextThread(tp);
   } while (tp != NULL);
 }
+
 static void cmd_initesp(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
   espInit();
 }
 static void cmd_espterm(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
   espTerm(argv[0]);
 }
 
 static void cmd_espRead(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
   espRead();
+}
+static void cmd_espConnect(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  if(argc==1)
+  {
+    wifiConnectAP(argv[0],"");
+  }
+  else if(argc==2)
+  {
+    wifiConnectAP(argv[0],argv[1]);  
+  }
 }
 
 
@@ -83,6 +105,7 @@ static const ShellCommand commands[] = {
     {"espinit", cmd_initesp},
     {"esp", cmd_espterm},
     {"espread", cmd_espRead},
+    {"espconnect", cmd_espConnect},
 		{NULL, NULL}
 };
 

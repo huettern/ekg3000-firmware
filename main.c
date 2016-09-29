@@ -16,6 +16,7 @@
 
 #include "ch.h"
 #include "hal.h"
+#include "wifichannel.h"
 
 #include "chprintf.h"
 
@@ -37,7 +38,7 @@ static THD_WORKING_AREA(myThreadWorkingArea, 128);
  * LED flashing thread.
  */
 static THD_FUNCTION(myThread, arg) {
- 
+ (void)arg;
   while (true) {
     palSetPad(GPIOB, 0);
     // chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
@@ -66,7 +67,7 @@ int main(void) {
   // USBInit();
   usbcdcInit();
 
-  /*
+  /* 
    * Activates the serial driver 2 using the default configuration, pins
    * are pre-configured in board.h.
    */
@@ -88,6 +89,11 @@ int main(void) {
    */
 
     palClearPad(GPIOB, 0);
+
+
+    chThdSleepMilliseconds(10000);
+    wifiInitX();
+
   while (true) {
     // palSetPad(GPIOB, 0);
     // chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
