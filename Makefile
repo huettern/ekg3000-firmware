@@ -211,7 +211,7 @@ UDEFS =-DCHPRINTF_USE_FLOAT=1
 UADEFS =
 
 # List all user directories here
-UINCDIR = .
+UINCDIR = 
 
 # List the user directory to look for the libraries here
 ULIBDIR =

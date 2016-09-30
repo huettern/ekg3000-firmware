@@ -142,11 +142,6 @@ void usbcdcHandleShell(void) {
 }
 
 void usbcdcInit(void) {
-	/*
-   * Shell manager initialization.
-   */
-  shellInit();
-
   /*
    * Initializes a serial-over-USB CDC driver.
    */
@@ -159,7 +154,12 @@ void usbcdcInit(void) {
    * after a reset.
    */
   usbDisconnectBus(serusbcfg.usbp);
-  chThdSleepMilliseconds(1000);
+  chThdSleepMilliseconds(1500);
   usbStart(serusbcfg.usbp, &usbcfg);
   usbConnectBus(serusbcfg.usbp);
+  
+  /*
+   * Shell manager initialization.
+   */
+  shellInit();
 }
