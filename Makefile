@@ -93,8 +93,8 @@ ESP8266 = ./esp8266
 include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/startup_stm32f3xx.mk
 # HAL-OSAL files (optional).
 include $(CHIBIOS)/os/hal/hal.mk
-	include $(CHIBIOS)/os/hal/ports/STM32/STM32F37x/platform.mk
-	include $(CHIBIOS)/os/hal/boards/ST_STM32373C_EVAL/board.mk
+	include $(CHIBIOS)/os/hal/ports/STM32/STM32F3xx/platform.mk
+	include $(CHIBIOS)/os/hal/boards/ST_STM32F3_DISCOVERY/board.mk
 include $(CHIBIOS)/os/hal/osal/rt/osal.mk
 # RTOS files (optional).
 include $(CHIBIOS)/os/rt/rt.mk
@@ -104,7 +104,7 @@ include $(CHIBIOS)/test/rt/test.mk
 include $(ESP8266)/esp8266.mk
 
 # Define linker script file here
-LDSCRIPT= $(STARTUPLD)/STM32F373xC.ld
+LDSCRIPT= $(STARTUPLD)/STM32F303xC.ld
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
