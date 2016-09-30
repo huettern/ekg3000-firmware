@@ -241,7 +241,7 @@ int wifiInitX(void)
     // chIQInit(&iq3, queue_buff3, QUEUEBUF_SIZ, notify, NULL);
     // chIQInit(&iq4, queue_buff4, QUEUEBUF_SIZ, notify, NULL);
 
-    espInit();
+    return espInit();
 }
 
 int wifiInit(int mode, SerialDriver * usart, SerialDriver * dbg)

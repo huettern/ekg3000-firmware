@@ -16,6 +16,7 @@
 
 #include "esp8266.h"
 #include "wifichannel.h"
+#include "wifiapp.h"
 
 
 #define usb_lld_connect_bus(usbp)
@@ -86,6 +87,21 @@ static void cmd_espRead(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)argv;
   espRead();
 }
+static void cmd_espStatus(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  chprintf(chp, "Status=%d\r\n", esp8266GetIpStatus(NULL,NULL));
+}
+static void cmd_esptestsend(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  wifiTransmitRaw("Hello Socket",strlen("Hello Socket"));
+}
+
+
+
 static void cmd_espConnect(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
   if(argc==1)
@@ -106,6 +122,8 @@ static const ShellCommand commands[] = {
     {"esp", cmd_espterm},
     {"espread", cmd_espRead},
     {"espconnect", cmd_espConnect},
+    {"espstatus", cmd_espStatus},
+    {"esptestsend", cmd_esptestsend},
 		{NULL, NULL}
 };
 

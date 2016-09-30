@@ -14,7 +14,8 @@
 static BaseSequentialStream * usart = (BaseSequentialStream *)&SD2;
 static BaseSequentialStream * dbgstrm = bssusb;
 
-#define DBG(X, ...)    chprintf(dbgstrm, X, ##__VA_ARGS__ )
+// #define DBG(X, ...)    chprintf(dbgstrm, X, ##__VA_ARGS__ )
+#define DBG(X, ...)
 
 #define RXBUFF_SIZE 2048
 #define TXBUFF_SIZE 200
@@ -176,6 +177,7 @@ int esp8266ReadBuffUntil(char * buffer, int len, const char * resp, int timeout)
         c = sdGetTimeout((SerialDriver *) usart, timeout);
         if (c >= 0) {
             DBG("%c", c);
+            
             if (numread < len)
             {
               buffer[numread] = c;
@@ -216,6 +218,21 @@ int esp8266ReadLinesUntil(char * resp, responselinehandler handler)
   }
 
   return numlines;
+}
+
+int esp8266ReadAll(char* buf, int len, int timeout)
+{
+  int c;
+  int numread = 0;
+
+  do
+  {
+    c = sdGetTimeout((SerialDriver *) usart, timeout);
+    if(c!=Q_TIMEOUT) buf[numread] = (char)c;
+    numread ++;
+  } while( (c != Q_TIMEOUT) && (c != 0) && ((numread+1) < len) );
+  buf[numread] = 0;
+  return numread;
 }
 
 bool esp8266Cmd(const char * cmd, const char * rsp, int cmddelay)
@@ -269,7 +286,7 @@ static void ongetfirmwareversion(const char * buffer, int len)
 static void onAddAP(APInfo * info)
 {
   if (dbgstrm)
-  chprintf(dbgstrm, "SSID[%s] signal[%d] ecn[%d] MAC[%s]\r\n",
+  DBG("SSID[%s] signal[%d] ecn[%d] MAC[%s]\r\n",
       info->ssid,
       info->strength,
       info->ecn,
@@ -295,7 +312,7 @@ int esp8266ListAP(onNewAP apCallback)
   char line[200], *p;
   APInfo apinfo;
 
-  chprintf(dbgstrm, "ESP8266 Listing APs...\r\n");
+  DBG("ESP8266 Listing APs...\r\n");
 
   chprintf(usart, "AT+CWLAP\r\n");
   DBG(">>AT+CWLAP\r\n");
@@ -334,7 +351,7 @@ int esp8266ListAP(onNewAP apCallback)
 
 int espInit(void) {
 
-  chprintf(dbgstrm, "Starting esp init...\r\n");
+  DBG("Starting esp init...\r\n");
 
   /*
    * Activates the serial driver 2 using the driver default configuration.
@@ -345,37 +362,43 @@ int espInit(void) {
   palSetPadMode(GPIOA, 3, PAL_MODE_ALTERNATE(7));
   
   if (!esp8266Cmd("AT+RST\r\n", "AT+RST", 1000))
-    {
-        chprintf(dbgstrm, "Failed to reset ESP8266!\r\n");
-        return WIFI_ERR_RESET;
-    }else
-        chprintf(dbgstrm, "\r\nESP8266 Initialized\r\n");
-
+  {
+      DBG("Failed to reset ESP8266!\r\n");
+      return WIFI_ERR_RESET;
+  }
+  else
+  {
+    DBG("\r\nESP8266 Initialized\r\n");
+  }
+    
   espStatus = WIFI_INITIALIZED;
 
-  chprintf(dbgstrm, "ESP8266 Firmware Version [%s]\r\n", esp8266GetFirmwareVersion());
+  // DBG("ESP8266 Firmware Version [%s]\r\n", esp8266GetFirmwareVersion());
 
   if(esp8266SetMode(WIFI_MODE_STA))
-      chprintf(dbgstrm, "ESP8266 Mode set to %d\r\n", WIFI_MODE_STA);
-  chprintf(dbgstrm, "done\r\n");
+  {
+    DBG("ESP8266 Mode set to %d\r\n", WIFI_MODE_STA);
+  }
+  
+  // DBG("done\r\n");
 
-  esp8266ListAP(onAddAP);
+  // esp8266ListAP(onAddAP);
 
     return WIFI_ERR_NONE;
-  // chprintf(dbgstrm, ">AT+CWMODE=1\r\n",rxbuff);
+  // DBG(">AT+CWMODE=1\r\n",rxbuff);
   // chprintf(&SD2, "AT+CWMODE=1\r\n");
 
   // chThdSleepMilliseconds(100);
   // ctr = sdReadTimeout(&SD2, rxbuff, 64, TIME_IMMEDIATE);
   // rxbuff[ctr] = 0;
-  // chprintf(dbgstrm, "<%s\r\n",rxbuff);
+  // DBG("<%s\r\n",rxbuff);
 
 
 }
 
 int esp8266ConnectAP(const char *ssid, const char *password)
 {
-  if(dbgstrm) chprintf(dbgstrm, "ESP8266 Joining AP (%s) ... ", ssid);
+  if(dbgstrm) DBG("ESP8266 Joining AP (%s) ... ", ssid);
 
   chsnprintf(txbuff, TXBUFF_SIZE,"AT+CWJAP=\"%s\",\"%s\"\r\n",
     ssid,
@@ -384,27 +407,27 @@ int esp8266ConnectAP(const char *ssid, const char *password)
   if (esp8266CmdX(txbuff, RET_OK, 5000, TIME_INFINITE) > 0)
   {
     espStatus = WIFI_AP_CONNECTED;
-    if (dbgstrm) chprintf(dbgstrm, "Success!\r\n");
+    if (dbgstrm) DBG("Success!\r\n");
   }
   else
   {
-    if (dbgstrm) chprintf(dbgstrm, "Failed!\r\n");
+    if (dbgstrm) DBG("Failed!\r\n");
     return WIFI_ERR_JOIN;
   }
 
-  if (dbgstrm) chprintf(dbgstrm, "Assigned IP [%s]\r\n", esp8266GetIPAddress());
+  if (dbgstrm) DBG("Assigned IP [%s]\r\n", esp8266GetIPAddress());
 
 
 //  if (esp8266CmdX("AT+CIPMODE=1\r\n", RET_OK | RET_ERROR, 100, TIME_INFINITE) != RET_OK)
 //  {
-//     if(dbgstrm) chprintf(dbgstrm, "ESP8266 Setting CIPMODE Failed!!\r\n");
+//     if(dbgstrm) DBG("ESP8266 Setting CIPMODE Failed!!\r\n");
 //     return WIFI_ERR_MUX;
 //  }
 
  
   if (esp8266CmdX("AT+CIPMUX=1\r\n", RET_OK | RET_ERROR, 100, TIME_INFINITE) != RET_OK)
   {
-      if (dbgstrm) chprintf(dbgstrm, "ESP8266 Setting MUX Failed!!\r\n");
+      if (dbgstrm) DBG("ESP8266 Setting MUX Failed!!\r\n");
       return WIFI_ERR_MUX;
   }
 
@@ -730,19 +753,20 @@ int esp8266Read(char * buffer, int bytestoread)
 
 void espTerm(char* str) {
 
-  chprintf(dbgstrm, ">%s\r\n",str);
+  DBG(">%s\r\n",str);
   // sdAsynchronousWrite(&SD2, str, strlen(str));
   // esp8266Cmd()
-  esp8266Cmd(str, 0, 1000);
+  // esp8266Cmd(str, 0, 1000);
+  chprintf(usart, "%s\r\n", str);
   // chprintf(&SD2, "%s\r\n",str);
 
   // chThdSleepMilliseconds(1000);
 
-  // espRead();
+  espRead();
   
   // ctr = sdReadTimeout(&SD2, rxbuff, 64, TIME_IMMEDIATE);
   // rxbuff[ctr%RXBUFF_SIZE] = 0;
-  // chprintf(dbgstrm, "<%s\r\n",rxbuff);
+  // DBG("<%s\r\n",rxbuff);
 }
 
 void espRead() {
@@ -750,9 +774,11 @@ void espRead() {
   // uint32_t ctr;
   // ctr = sdReadTimeout(&SD2, rxbuff, RXBUFF_SIZE, TIME_IMMEDIATE);
 
-  esp8266ReadBuffUntil(buf, 200, "OK", READ_TIMEOUT);
+  // esp8266ReadBuffUntil(buf, 200, "OK", READ_TIMEOUT);
+
+  esp8266ReadAll(buf, 200, READ_TIMEOUT);
 
   // ctr = sdRead(&SD2, rxbuff, RXBUFF_SIZE);
   // rxbuff[ctr%RXBUFF_SIZE] = 0;
-  chprintf(dbgstrm, "<%s\r\n",buf);
+  DBG("<%s\r\n",buf);
 }
