@@ -41,11 +41,12 @@ static THD_WORKING_AREA(myThreadWorkingArea, 128);
  */
 static THD_FUNCTION(myThread, arg) {
  (void)arg;
+ chRegSetThreadName("blinker");
   while (true) {
-    palSetPad(GPIOB, 0);
+    palSetPad(GPIOE, 10);
     // chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
     chThdSleepMilliseconds(50);
-    palClearPad(GPIOB, 0);
+    palClearPad(GPIOE, 10);
     // chprintf((BaseSequentialStream *)&SDU1, "Hoi Sven\n\r");
     chThdSleepMilliseconds(50);
   }
@@ -79,7 +80,7 @@ int main(void) {
    * Creates the example thread.
    */
 
-  palSetPadMode(GPIOB, 0, PAL_MODE_OUTPUT_PUSHPULL); /* PD4 */
+  palSetPadMode(GPIOE, 10, PAL_MODE_OUTPUT_PUSHPULL); /* PD4 */
 
    /* Starting the flashing LEDs thread.*/
    (void)chThdCreateStatic(myThreadWorkingArea, sizeof(myThreadWorkingArea),
@@ -90,7 +91,7 @@ int main(void) {
    * pressed the test procedure is launched.
    */
 
-    palClearPad(GPIOB, 0);
+    palClearPad(GPIOE, 10);
 
 
     chThdSleepMilliseconds(5000);
