@@ -4,6 +4,8 @@
 
 #include "hal.h"
 
+void espStart(void);
+
 int espInit(void);
 
 bool espHasIP(void);

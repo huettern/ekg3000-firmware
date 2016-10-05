@@ -64,11 +64,13 @@ int main(void) {
    * - Kernel initialization, the main() function becomes a thread and the
    *   RTOS is active.
    */
-  halInit();
+
+	halInit();
   chSysInit();
 
   // USBInit();
   usbcdcInit();
+  espStart();
 
   /* 
    * Activates the serial driver 2 using the default configuration, pins

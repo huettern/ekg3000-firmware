@@ -28,7 +28,8 @@ static BaseSequentialStream * dbgstrm = bssusb;
 static char rxbuff[RXBUFF_SIZE]  __attribute__ ((section(".bufram")));
 static char txbuff[TXBUFF_SIZE]  __attribute__ ((section(".bufram")));
 
-static uint32_t rxbufSize;
+static int serial_rx_read_pos = 0;
+static int serial_rx_write_pos = 0;
 
 static uint8_t ip_addr[] = {0,0,0,0};
 static uint8_t ip_gateway[] = {0,0,0,0};
@@ -55,7 +56,10 @@ static UARTConfig uart_cfg_1 = {
   0
 };
 
-
+// Threads
+static THD_FUNCTION(rx_process_thread, arg);
+static THD_WORKING_AREA(rx_process_thread_wa, 4096);
+static thread_t *process_tp;
 
 
 /*===========================================================================*/
@@ -68,7 +72,6 @@ static UARTConfig uart_cfg_1 = {
  */
 static void txend1(UARTDriver *uartp) {
   (void)uartp;
-  DBG("txend1\r\n");
 }
 
 /*
@@ -76,7 +79,6 @@ static void txend1(UARTDriver *uartp) {
  */
 static void txend2(UARTDriver *uartp) {
   (void)uartp;
-  DBG("txend2\r\n");
 }
 
 /*
@@ -86,7 +88,6 @@ static void txend2(UARTDriver *uartp) {
 static void rxerr(UARTDriver *uartp, uartflags_t e) {
   (void)uartp;
   (void)e;
-  DBG("rxerr\r\n");
 }
 
 /*
@@ -94,10 +95,16 @@ static void rxerr(UARTDriver *uartp, uartflags_t e) {
  * was not ready to receive it, the character is passed as parameter.
  */
 static void rxchar(UARTDriver *uartp, uint16_t c) {
-  DBG("%c",c);
   (void)uartp;
-  (void)c;
-  DBG("rxchar\r\n");
+  rxbuff[serial_rx_write_pos++] = c;
+
+  if (serial_rx_write_pos == RXBUFF_SIZE) {
+    serial_rx_write_pos = 0;
+  }
+
+  chSysLockFromISR();
+  if(process_tp) chEvtSignalI(process_tp, (eventmask_t) 1);
+  chSysUnlockFromISR();
 }
 
 /*
@@ -105,7 +112,6 @@ static void rxchar(UARTDriver *uartp, uint16_t c) {
  */
 static void rxend(UARTDriver *uartp) {
   (void)uartp;
-  DBG("rxend\r\n");
 }
 
 /*===========================================================================*/
@@ -125,7 +131,7 @@ bool esp8266ReadUntil(const char * resp, int timeout)
     int index = 0;
     int targetLength = strlen(resp);
     memset(rxbuff, 0, RXBUFF_SIZE);
-    rxbufSize = 0;
+    int rxbufSize = 0;
 
     for(;;)
     {
@@ -194,28 +200,40 @@ bool esp8266SetMode(int mode)
 /*===========================================================================*/
 /* Module public functions.                                                  */
 /*===========================================================================*/
+/**
+ * @brief      Starts the esp comm thread
+ */
+void espStart(void) {
+  (void)chThdCreateStatic(rx_process_thread_wa, 
+    sizeof(rx_process_thread_wa), 
+    NORMALPRIO, 
+    rx_process_thread, 
+    NULL);  
 
-int espInit(void) {
-
-  DBG("Starting esp init...\r\n");
   /*
-   * Activates the serial driver 2 using the driver default configuration.
-   * PA2(TX) and PA3(RX) are routed to USART2.
-   */
+  * Activates the serial driver 2 using the driver default configuration.
+  * PA2(TX) and PA3(RX) are routed to USART2.
+  */
   // sdStart(&SD2, &sd2conf);
   uartStart(&UARTD2, &uart_cfg_1);
   palSetPadMode(GPIOA, 2, PAL_MODE_ALTERNATE(7));
   palSetPadMode(GPIOA, 3, PAL_MODE_ALTERNATE(7));
+}
+
+int espInit(void) {
+
+  DBG("Starting esp init...\r\n");
   
-  // if (!esp8266Cmd("AT+RST", "ready", 2000))
-  // {
-  //     DBG("Failed to reset ESP8266!\r\n");
-  //     return -1;
-  // }
-  // else
-  // {
-  //   DBG("\r\nESP8266 Initialized\r\n");
-  // }
+
+  if (!esp8266Cmd("AT+RST", "ready", 2000))
+  {
+      DBG("Failed to reset ESP8266!\r\n");
+      return -1;
+  }
+  else
+  {
+    DBG("\r\nESP8266 Initialized\r\n");
+  }
     
 
   // // DBG("ESP8266 Firmware Version [%s]\r\n", esp8266GetFirmwareVersion());
@@ -225,7 +243,7 @@ int espInit(void) {
   //   DBG("ESP8266 Mode set to %d\r\n", WIFI_MODE_STA);
   // }
 
-  return 0;
+  return -1;
 }
 
 /**
@@ -295,6 +313,28 @@ bool espHasIP(void)
   return true;
 }
 
+
+
+static THD_FUNCTION(rx_process_thread, arg) {
+  (void)arg;
+
+  chRegSetThreadName("uartcomm process");
+
+  process_tp = chThdGetSelfX();
+
+  for(;;)
+  {
+    chEvtWaitAny((eventmask_t) 1);
+
+    while (serial_rx_read_pos != serial_rx_write_pos) {
+      DBG("%c", rxbuff[serial_rx_read_pos++]);
+      if (serial_rx_read_pos == RXBUFF_SIZE) {
+        serial_rx_read_pos = 0;
+      }
+    }
+  }
+
+}
 
 
 
