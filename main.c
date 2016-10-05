@@ -96,8 +96,8 @@ int main(void) {
 
     chThdSleepMilliseconds(5000);
     // wifiInitX();
-    // espRead();
-    wifiStart();
+    // // espRead();
+    // wifiStart();
 
   while (true) {
     // palSetPad(GPIOB, 0);

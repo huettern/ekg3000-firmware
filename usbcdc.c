@@ -72,7 +72,7 @@ static void cmd_initesp(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
   (void)argc;
   (void)argv;
-  espInit();
+  wifiStart();
 }
 static void cmd_espterm(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
@@ -91,7 +91,7 @@ static void cmd_espStatus(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
   (void)argc;
   (void)argv;
-  chprintf(chp, "Status=%d\r\n", esp8266GetIpStatus(NULL,NULL));
+  // chprintf(chp, "Status=%d\r\n", esp8266GetIpStatus(NULL,NULL));
 }
 static void cmd_esptestsend(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
@@ -106,11 +106,11 @@ static void cmd_espConnect(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
   if(argc==1)
   {
-    wifiConnectAP(argv[0],"");
+    //wifiConnectAP(argv[0],"");
   }
   else if(argc==2)
   {
-    wifiConnectAP(argv[0],argv[1]);  
+    //wifiConnectAP(argv[0],argv[1]);  
   }
 }
 

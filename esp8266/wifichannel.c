@@ -281,6 +281,16 @@ int wifiConnectAP(const char * ssid, const char * password)
     return 0;
 }
 
+/**
+ * @brief      Checks if the WiFi module has an IP address
+ *
+ * @return     true if IP is available
+ */
+bool wifiHasIP()
+{
+  return espHasIP();
+}
+
 // Channel open returns an unused, empty channel
 int channelOpen(int conntype)
 {

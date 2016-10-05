@@ -55,3 +55,32 @@ char * rtrim(char * str, char trimchar)
 
   return str;
 }
+
+/**
+ * @brief      Convert string to ip address
+ *
+ * @param      str   The string
+ * @param      ip    pointer to an 4 byte uint8_t array
+ */
+void str2ip (char* str, uint8_t* ip)
+{
+  char buf[] = {0,0,0,0};
+  int ctr = 0;
+  
+  if(strlen(str) < 7) return;
+  
+  for(int i = 0; i < 4; i++)
+  {
+      memset(buf,0,4);
+      for(int j = 0; str[ctr] != '.'; j++) buf[j] = str[ctr++];
+      ip[i] = atoi(buf);
+      ctr++;
+  }
+
+}
+
+
+
+
+
+

@@ -5,6 +5,7 @@
 
 #include "wifichannel.h"
 #include "usbcfg.h"
+#include "esp8266.h"
 
 
 /*===========================================================================*/
@@ -52,11 +53,11 @@ static void fWiFiStateMachine(void)
   {
     case WIFI_DEINIT:
       chprintf(bssusb, "WIFIAPP:WIFI_DEINIT\r\n");
-      if(wifiInitX() == WIFI_ERR_NONE) state=WIFI_INITIALIZED;
+      if(espInit() == 0) state=WIFI_INITIALIZED;
       break;
     case WIFI_INITIALIZED:
       chprintf(bssusb, "WIFIAPP:WIFI_INITIALIZED\r\n");
-      if(esp8266GetIpStatus(NULL,NULL)==WIFI_CONN_GOTIP) state=WIFI_CONNECTED;
+      // if(wifiHasIP()) state=WIFI_CONNECTED;
       break;
     case WIFI_CONNECTED:
       chprintf(bssusb, "WIFIAPP:WIFI_CONNECTED\r\n");
@@ -64,7 +65,7 @@ static void fWiFiStateMachine(void)
       break;
     case WIFI_START_TRANSMISSION:
       chprintf(bssusb, "WIFIAPP:WIFI_START_TRANSMISSION\r\n");
-      channelSendTo(channelOpen(TCP),txmsg,txmsg_size,SERVER_IP,SERVER_PORT);
+      // channelSendTo(channelOpen(TCP),txmsg,txmsg_size,SERVER_IP,SERVER_PORT);
       blSendDataRdy = false;
       state=WIFI_CONNECTED;
       break;
