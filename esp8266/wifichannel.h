@@ -66,10 +66,15 @@ typedef struct {
 
 esp_channel * getChannel(int d);
 
-int wifiInitX(void);
+int wifiInit(void);
+bool wifiHasIP(void);
+
+
+
+
+
 //int wifiInit(int mode, SerialDriver * usart, SerialDriver * dbg);
 int wifiConnectAP(const char * ssid, const char * password);
-bool wifiHasIP(void);
 
 // Channel open returns an unused, empty channel
 int channelOpen(int conntype);

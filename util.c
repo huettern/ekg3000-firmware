@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 void hexdump(BaseSequentialStream * bss, void *mem, unsigned int len)
 {
@@ -62,18 +63,21 @@ char * rtrim(char * str, char trimchar)
  * @param      str   The string
  * @param      ip    pointer to an 4 byte uint8_t array
  */
-void str2ip (char* str, uint8_t* ip)
+void str2ip (char* str, uint8_t* inip)
 {
   char buf[] = {0,0,0,0};
-  int ctr = 0;
+  unsigned int ctr = 0;
+  int ipctr = 0;
   
   if(strlen(str) < 7) return;
   
-  for(int i = 0; i < 4; i++)
+  for(ipctr = 0; ipctr < 4; ipctr++)
   {
-      memset(buf,0,4);
-      for(int j = 0; str[ctr] != '.'; j++) buf[j] = str[ctr++];
-      ip[i] = atoi(buf);
+      buf[0]=0;buf[1]=0;buf[2]=0;buf[3]=0;
+      for(int j = 0; !( (str[ctr] == '.') || (ctr >= strlen(str))); j++) {
+          buf[j] = str[ctr++];
+      }
+      inip[ipctr] = atoi(buf);
       ctr++;
   }
 

@@ -23,4 +23,6 @@ void wifiStart(void);
 
 void wifiTransmitRaw(char* buf, int len);
 
+void wifiAddAP(const char * ssid, const char * password);
+
 #endif

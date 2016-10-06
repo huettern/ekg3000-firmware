@@ -21,12 +21,14 @@ static BaseSequentialStream * dbgstrm = bssusb;
 
 #define RXBUFF_SIZE 2048
 #define TXBUFF_SIZE 200
+#define LINEBUFF_SIZE 2048
 
 #define READ_TIMEOUT 1000 // uart read timeout on 1000 ticks
 #define WRITE_TIMEOUT 1000 // uart write timeout on 1000 ticks
 // General purpose buffer for reading results
 static char rxbuff[RXBUFF_SIZE]  __attribute__ ((section(".bufram")));
 static char txbuff[TXBUFF_SIZE]  __attribute__ ((section(".bufram")));
+static char linebuff[LINEBUFF_SIZE]  __attribute__ ((section(".bufram")));
 
 static int serial_rx_read_pos = 0;
 static int serial_rx_write_pos = 0;
@@ -159,19 +161,14 @@ bool esp8266ReadUntil(const char * resp, int timeout)
     char c = 0;
     int index = 0;
     int targetLength = strlen(resp);
-    memset(rxbuff, 0, RXBUFF_SIZE);
-    int rxbufSize = 0;
+    int ctr = 0;
+    memset(linebuff, 0, LINEBUFF_SIZE);
 
-    for(;serial_rx_read_pos != serial_rx_write_pos;)
+    for(; serial_rx_read_pos < serial_rx_write_pos; serial_rx_read_pos++)
     {
-      c = rxbuff[serial_rx_read_pos++];
-      // if( (c == Q_TIMEOUT) || (c == Q_RESET) ) 
-      //   {
-      //     if(c == Q_TIMEOUT) DBG("Q_TIMEOUT");
-      //     if(c == Q_RESET) DBG("Q_RESET");
-          
-      //     return false;
-      //   }
+      c = rxbuff[serial_rx_read_pos];
+      linebuff[ctr++] = c;
+      ctr%=LINEBUFF_SIZE;
       if (c != resp[index])
       {
         index = 0;
@@ -246,30 +243,37 @@ void espStart(void) {
   palSetPadMode(GPIOA, 3, PAL_MODE_ALTERNATE(7));
 }
 
+/**
+ * @brief      Init the esp8266 
+ *
+ * @return     { description_of_the_return_value }
+ */
 int espInit(void) {
-
   DBG("Starting esp init...\r\n");
   
 
-  if (!esp8266Cmd("AT+RST", "ready", 2000))
+  if (!esp8266Cmd("AT+RST", "ready", 1500))
   {
       DBG("Failed to reset ESP8266!\r\n");
-      return -1;
+      return ESP_RET_INVAL;
   }
   else
   {
     DBG("\r\nESP8266 Initialized\r\n");
   }
-    
 
-  // // DBG("ESP8266 Firmware Version [%s]\r\n", esp8266GetFirmwareVersion());
+  if(esp8266SetMode(WIFI_MODE_STA))
+  {
+    DBG("ESP8266 Mode set to %d\r\n", WIFI_MODE_STA);
+  }
 
-  // if(esp8266SetMode(WIFI_MODE_STA))
-  // {
-  //   DBG("ESP8266 Mode set to %d\r\n", WIFI_MODE_STA);
-  // }
+  if (!esp8266Cmd("AT+CIPMUX=1", "OK", 500))
+  {
+      DBG("Failed to set ESP8266 MUX!\r\n");
+      return ESP_RET_INVAL;
+  }
 
-  return -1;
+  return ESP_RET_OK;
 }
 
 /**
@@ -283,52 +287,51 @@ bool espHasIP(void)
   int pos;
   char buf[16];
 
-  if (!esp8266Cmd("AT+CIPSTA?", "OK", 5000))
+  if (!esp8266Cmd("AT+CIPSTA?", "OK", 1000))
   {
       DBG("Failed to get ESP8266 IP STATUS!\r\n");
       return false;
   }
+  DBG("Got ESP8266 IP STATUS!\r\n");
+  
   // Now parse the received data
   memset(ip_addr,0,4);
   memset(ip_gateway,0,4);
   memset(ip_netmask,0,4);
 
   // get IP
-  ptr = strstr(rxbuff,"ip");
+  ptr = strstr(linebuff,"ip");
   if(ptr == NULL) return false;
   else
   {
-    pos = (int)(ptr - rxbuff);
+    pos = (int)(ptr - linebuff);
     memset(buf,0,16);
     pos+=4; // goto start of ip string
-    for(int i=0; rxbuff[pos]!='\"'; pos++) buf[i++] = rxbuff[pos]; //copy ip string
-    DBG("extracted string:%s\r\n",buf);
+    for(int i=0; linebuff[pos]!='\"'; pos++) buf[i++] = linebuff[pos]; //copy ip string
     str2ip(buf,ip_addr);
   }
 
   // get gateway
-  ptr = strstr(rxbuff,"gateway");
+  ptr = strstr(linebuff,"gateway");
   if(ptr == NULL) return false;
   else
   {
-    pos = (int)(ptr - rxbuff);
+    pos = (int)(ptr - linebuff);
     memset(buf,0,16);
-    pos+=4; // goto start of ip string
-    for(int i=0; rxbuff[pos]!='\"'; pos++) buf[i++] = rxbuff[pos]; //copy ip string
-    DBG("extracted string:%s\r\n",buf);
+    pos+=9; // goto start of ip string
+    for(int i=0; linebuff[pos]!='\"'; pos++) buf[i++] = linebuff[pos]; //copy ip string
     str2ip(buf,ip_gateway);
   }
 
   // get subnet
-  ptr = strstr(rxbuff,"netmask");
+  ptr = strstr(linebuff,"netmask");
   if(ptr == NULL) return false;
   else
   {
-    pos = (int)(ptr - rxbuff);
+    pos = (int)(ptr - linebuff);
     memset(buf,0,16);
-    pos+=4; // goto start of ip string
-    for(int i=0; rxbuff[pos]!='\"'; pos++) buf[i++] = rxbuff[pos]; //copy ip string
-    DBG("extracted string:%s\r\n",buf);
+    pos+=9; // goto start of ip string
+    for(int i=0; linebuff[pos]!='\"'; pos++) buf[i++] = linebuff[pos]; //copy ip string
     str2ip(buf,ip_netmask);
   }
 
@@ -336,13 +339,34 @@ bool espHasIP(void)
   DBG("GW: %d.%d.%d.%d\r\n", ip_gateway[0],ip_gateway[2],ip_gateway[2],ip_gateway[3]);
   DBG("NM: %d.%d.%d.%d\r\n", ip_netmask[0],ip_netmask[2],ip_netmask[2],ip_netmask[3]);
 
-  return true;
+  if(ip_addr[0] != 0) return true;
+  return false;
 }
 
+/**
+ * @brief      Connect to hotspot
+ *
+ * @param[in]  ssid      The ssid
+ * @param[in]  password  The password
+ *
+ * @return     { description_of_the_return_value }
+ */
+int espConnectAP(const char *ssid, const char *password)
+{
+  char buf[100];
 
+  DBG("ESP8266 Joining AP (%s) ... ", ssid);
 
+  chsnprintf(buf, 100, "AT+CWJAP=\"%s\",\"%s\"", ssid, password);
 
-
+  if (!esp8266Cmd(buf, "OK", 1000))
+  {
+      DBG("Failed to connect AP!\r\n");
+      return ESP_RET_INVAL;
+  }
+  DBG("AP connect success\r\n");
+  return ESP_RET_OK;
+}
 
 
 void espTerm(char* str) {

@@ -106,11 +106,11 @@ static void cmd_espConnect(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
   if(argc==1)
   {
-    //wifiConnectAP(argv[0],"");
+    wifiAddAP(argv[0],"");
   }
   else if(argc==2)
   {
-    //wifiConnectAP(argv[0],argv[1]);  
+    wifiAddAP(argv[0],argv[1]);  
   }
 }
 
