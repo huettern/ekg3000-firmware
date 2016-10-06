@@ -98,9 +98,7 @@ static void rxchar(UARTDriver *uartp, uint16_t c) {
   (void)uartp;
   rxbuff[serial_rx_write_pos++] = c;
 
-  if (serial_rx_write_pos == RXBUFF_SIZE) {
-    serial_rx_write_pos = 0;
-  }
+  serial_rx_write_pos %= RXBUFF_SIZE;
 
   chSysLockFromISR();
   if(process_tp) chEvtSignalI(process_tp, (eventmask_t) 1);
@@ -112,6 +110,37 @@ static void rxchar(UARTDriver *uartp, uint16_t c) {
  */
 static void rxend(UARTDriver *uartp) {
   (void)uartp;
+}
+
+
+/*===========================================================================*/
+/* RX Buffer functions                                                       */
+/*===========================================================================*/
+/**
+ * @brief      RX thread, gets event from ISR when char is received
+ *
+ * @param[in]  <unnamed>  { parameter_description }
+ * @param[in]  <unnamed>  { parameter_description }
+ */
+static THD_FUNCTION(rx_process_thread, arg) {
+  (void)arg;
+
+  chRegSetThreadName("uartcomm process");
+
+  process_tp = chThdGetSelfX();
+
+  for(;;)
+  {
+    chEvtWaitAny((eventmask_t) 1);
+
+    DBG("%c", rxbuff[serial_rx_write_pos-1]);
+
+    // while (serial_rx_read_pos != serial_rx_write_pos) {
+    //   DBG("%c", rxbuff[serial_rx_read_pos++]);
+    //   serial_rx_read_pos %= RXBUFF_SIZE;
+    // }
+  }
+
 }
 
 /*===========================================================================*/
@@ -127,34 +156,32 @@ static void rxend(UARTDriver *uartp) {
  */
 bool esp8266ReadUntil(const char * resp, int timeout)
 {
-    int c = 0;
+    char c = 0;
     int index = 0;
     int targetLength = strlen(resp);
     memset(rxbuff, 0, RXBUFF_SIZE);
     int rxbufSize = 0;
 
-    for(;;)
+    for(;serial_rx_read_pos != serial_rx_write_pos;)
     {
-      // c = sdGetTimeout((SerialDriver *) usart, timeout);
-      if( (c == Q_TIMEOUT) || (c == Q_RESET) ) 
-        {
-          if(c == Q_TIMEOUT) DBG("Q_TIMEOUT");
-          if(c == Q_RESET) DBG("Q_RESET");
+      c = rxbuff[serial_rx_read_pos++];
+      // if( (c == Q_TIMEOUT) || (c == Q_RESET) ) 
+      //   {
+      //     if(c == Q_TIMEOUT) DBG("Q_TIMEOUT");
+      //     if(c == Q_RESET) DBG("Q_RESET");
           
-          return false;
-        }
-      rxbuff[rxbufSize++]=c;
-      DBG("%c", c);
+      //     return false;
+      //   }
       if (c != resp[index])
-            index = 0;
-
+      {
+        index = 0;
+      }
       if (c == resp[index]){
          if(++index >= targetLength){
               return true;
          }
       }
     }
-          DBG("FDSA");
     return false;
 }
 
@@ -178,8 +205,7 @@ bool esp8266Cmd(const char * cmd, const char * rsp, int cmddelay)
     chThdSleepMilliseconds(cmddelay);
   }
 
-  // return esp8266ReadUntil(rsp, READ_TIMEOUT);
-  return false;
+  return esp8266ReadUntil(rsp, READ_TIMEOUT);
 }
 
 /**
@@ -315,26 +341,7 @@ bool espHasIP(void)
 
 
 
-static THD_FUNCTION(rx_process_thread, arg) {
-  (void)arg;
 
-  chRegSetThreadName("uartcomm process");
-
-  process_tp = chThdGetSelfX();
-
-  for(;;)
-  {
-    chEvtWaitAny((eventmask_t) 1);
-
-    while (serial_rx_read_pos != serial_rx_write_pos) {
-      DBG("%c", rxbuff[serial_rx_read_pos++]);
-      if (serial_rx_read_pos == RXBUFF_SIZE) {
-        serial_rx_read_pos = 0;
-      }
-    }
-  }
-
-}
 
 
 
