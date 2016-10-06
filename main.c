@@ -96,7 +96,7 @@ int main(void) {
     palClearPad(GPIOE, 10);
 
 
-    chThdSleepMilliseconds(5000);
+    chThdSleepMilliseconds(2000);
     // wifiInitX();
     // // espRead();
     // wifiStart();

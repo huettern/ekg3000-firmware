@@ -23,8 +23,8 @@
 #define SERVER_IP "192.168.0.178"
 #define SERVER_PORT 8266
 
-#define WIFI_SSID "ekg3000overloard"
-#define WIFI_PW "pro3ekg3000"
+#define WIFI_SSID "host huetter tom"
+#define WIFI_PW "kaffeetasse"
 
 
 static THD_WORKING_AREA(waWifi, 256);
@@ -53,8 +53,8 @@ static char* txmsg;
 static int txmsg_size;
 
 #define WIFI_SSID_PW_SIZE 25
-static char* wifi_ssid[WIFI_SSID_PW_SIZE];
-static char* wifi_pw[WIFI_SSID_PW_SIZE];
+static char wifi_ssid[WIFI_SSID_PW_SIZE];
+static char wifi_pw[WIFI_SSID_PW_SIZE];
 
 /*===========================================================================*/
 /* Module local functions.                                                   */

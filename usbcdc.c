@@ -81,11 +81,12 @@ static void cmd_espterm(BaseSequentialStream *chp, int argc, char *argv[]) {
   espTerm(argv[0]);
 }
 
-static void cmd_espRead(BaseSequentialStream *chp, int argc, char *argv[]) {
+static void cmd_espConnect(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
   (void)argc;
   (void)argv;
-  espRead();
+  // espRead();
+  esp8266Connect(atoi(argv[0]),argv[1],atoi(argv[2]),ESP_TCP);
 }
 static void cmd_espStatus(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
@@ -97,12 +98,51 @@ static void cmd_esptestsend(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
   (void)argc;
   (void)argv;
-  wifiTransmitRaw("Hello Socket",strlen("Hello Socket"));
+  // esp8266SendLine(atoi(argv[0]),argv[1]);
+  esp8266SendHeader(atoi(argv[0]),strlen(argv[1]));
+  esp8266Send(argv[1], true);
+}
+static void cmd_espClose(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  esp8266Disconnect(atoi(argv[0]));
+}
+
+static void cmd_espReadHeader(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  int param = 0;
+  int channel = 0;
+  char buf[100];
+  esp8266ReadRespHeader(&channel, &param, 5);
+  esp8266Read(buf,param);
+}
+
+static void cmd_wificonnect(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  int chan = channelOpen(ESP_TCP);
+  channelConnect(chan, argv[0], atoi(argv[1]));
+
+}
+static void cmd_wifisend(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  channelSendLine(0, argv[0]);
+}
+static void cmd_wifistatus(BaseSequentialStream *chp, int argc, char *argv[]) {
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  channelStatus(chp);
 }
 
 
-
-static void cmd_espConnect(BaseSequentialStream *chp, int argc, char *argv[]) {
+static void cmd_espAddAP(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
   if(argc==1)
   {
@@ -120,10 +160,16 @@ static const ShellCommand commands[] = {
 		{"threads", cmd_threads},
     {"espinit", cmd_initesp},
     {"esp", cmd_espterm},
-    {"espread", cmd_espRead},
     {"espconnect", cmd_espConnect},
+    {"espaddap", cmd_espAddAP},
     {"espstatus", cmd_espStatus},
     {"esptestsend", cmd_esptestsend},
+    {"espclose", cmd_espClose},
+    {"espreadheader", cmd_espReadHeader},
+    {"wificonnect", cmd_wificonnect},
+    {"wifisend", cmd_wifisend},
+    {"wifistatus", cmd_wifistatus},
+
 		{NULL, NULL}
 };
 

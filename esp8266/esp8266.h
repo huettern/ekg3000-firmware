@@ -20,6 +20,11 @@
 #define  ESP_RET_NOCHANGE   0x0800
 #define  ESP_RET_SENTFAIL   0x1000
 
+typedef struct {
+  int retval;
+  char retstr[100];
+} espReturn_t;
+
 enum wifiConStatus {
     ESP_WIFI_CONN_UNKNWN = 1,
     ESP_WIFI_CONN_GOTIP,        // 2
@@ -70,6 +75,24 @@ int espConnectAP(const char *ssid, const char *password);
 void espTerm(char* str);
 
 void espRead(void);
+
+bool esp8266HasData(void);
+
+// com
+int esp8266Server(int channel, int type, uint16_t port);
+int esp8266Connect(int channel, const char * ip, uint16_t port, int type);
+bool esp8266Disconnect(int channel);
+
+// send
+bool esp8266SendLine(int channel, const char * str);
+bool esp8266SendHeader(int channel, int datatosend);
+bool esp8266Send(const char * data, bool waitforok);
+
+// read
+int esp8266ReadRespHeader(int * channel, int * numbytes, int timeout);
+int esp8266Read(char * buffer, int bytestoread);
+int esp8266Get(int timeout);
+
 
 #endif 
 // _ESP8266_H

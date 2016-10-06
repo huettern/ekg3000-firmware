@@ -44,12 +44,12 @@ typedef struct {
    bool isservergenerated;
    input_queue_t * iqueue;
    int usecount;
-} esp_channel;
+} esp_channel_t;
 
 typedef enum {
-    CHANNEL_UNUSED,
-    CHANNEL_CONNECTED,
-    CHANNEL_DISCONNECTED
+    CHANNEL_UNUSED = 0,
+    CHANNEL_CONNECTED = 1,
+    CHANNEL_DISCONNECTED = 2
 } esp_channel_status;
 
 enum {
@@ -64,13 +64,10 @@ typedef struct {
   int numbytes;
 } esp_channel_cmd;
 
-esp_channel * getChannel(int d);
+esp_channel_t * getChannel(int d);
 
 int wifiInit(void);
 bool wifiHasIP(void);
-
-
-
 
 
 //int wifiInit(int mode, SerialDriver * usart, SerialDriver * dbg);
@@ -96,6 +93,8 @@ int channelServer(int channel, int type, uint16_t port);
 
 // Closes the channel
 int channelClose(int channel);
+
+void channelStatus(BaseSequentialStream *chp);
 
 #ifdef __cplusplus
 }

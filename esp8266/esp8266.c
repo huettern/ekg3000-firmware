@@ -64,6 +64,31 @@ static THD_WORKING_AREA(rx_process_thread_wa, 4096);
 static thread_t *process_tp;
 
 
+typedef enum {
+    WIFI_RESET = 0,
+    WIFI_INITIALIZED,
+    WIFI_AP_CONNECTED
+} wifiStatus_t;
+
+static const espReturn_t returnValues[] = {
+   { ESP_RET_ALREADY_CONNECTED, "LINK IS BUILDED\r\n" },
+   { ESP_RET_NOCHANGE,          "no change\r\n" },
+   { ESP_RET_SENT,              "SEND OK\r\n" },
+   { ESP_RET_SENTFAIL,          "SEND FAIL\r\n" },
+   { ESP_RET_ERROR,             "ERROR\r\n" },
+   { ESP_RET_UNLINK,            "Unlink\r\n" },
+   { ESP_RET_LINKED,            "Linked\r\n" },
+   { ESP_RET_CLOSED,            ",CLOSED\r\n" },
+   { ESP_RET_CONNECT,           ",CONNECT\r\n" },
+   { ESP_RET_READY,             "ready\r\n" },
+   { ESP_RET_IPD,               "+IPD,"  },
+   { ESP_RET_OK,                "OK\r\n" },
+   { ESP_RET_NONE,              "\r\n" },
+};
+#define NUM_RESPONSES sizeof(returnValues)/sizeof(espReturn_t)
+
+static wifiStatus_t espStatus = WIFI_RESET;
+
 /*===========================================================================*/
 /* USART callbacks                                                           */
 /*===========================================================================*/
@@ -127,7 +152,7 @@ static void rxend(UARTDriver *uartp) {
 static THD_FUNCTION(rx_process_thread, arg) {
   (void)arg;
 
-  chRegSetThreadName("uartcomm process");
+  chRegSetThreadName("uartcomm process - debug only");
 
   process_tp = chThdGetSelfX();
 
@@ -149,6 +174,27 @@ static THD_FUNCTION(rx_process_thread, arg) {
 /* Module static functions.                                                  */
 /*===========================================================================*/
 /**
+ * @brief      Returns one character from rx buffer
+ *
+ * @param[in]  timeout  The timeout
+ *
+ * @return     { description_of_the_return_value }
+ */
+static int rxget (int timeout)
+{
+  char c = 0;
+  if(timeout > 0) chThdSleepMilliseconds(timeout);
+  if(serial_rx_read_pos < serial_rx_write_pos)
+  {
+    c = rxbuff[serial_rx_read_pos];
+    serial_rx_read_pos++;
+    serial_rx_read_pos%=RXBUFF_SIZE;
+    return (int)c;
+  }
+  return -1;
+}
+
+/**
  * @brief      Reat input buffer until resp and block for timeout ms
  *
  * @param[in]  resp     The resp
@@ -164,7 +210,7 @@ bool esp8266ReadUntil(const char * resp, int timeout)
     int ctr = 0;
     memset(linebuff, 0, LINEBUFF_SIZE);
 
-    for(; serial_rx_read_pos < serial_rx_write_pos; serial_rx_read_pos++)
+    for(; serial_rx_read_pos < serial_rx_write_pos; )
     {
       c = rxbuff[serial_rx_read_pos];
       linebuff[ctr++] = c;
@@ -178,6 +224,8 @@ bool esp8266ReadUntil(const char * resp, int timeout)
               return true;
          }
       }
+      serial_rx_read_pos++;
+      serial_rx_read_pos%=RXBUFF_SIZE;
     }
     return false;
 }
@@ -206,6 +254,16 @@ bool esp8266Cmd(const char * cmd, const char * rsp, int cmddelay)
 }
 
 /**
+ * @brief      Send data string to the esp
+ *
+ * @param[in]  data  The data
+ */
+static void esp8266Data(const char * data)
+{
+  uartStartSend(&UARTD2, strlen(data), data);
+}
+
+/**
  * @brief      Set WiFi mode
  *
  * @param[in]  mode  The mode
@@ -218,7 +276,74 @@ bool esp8266SetMode(int mode)
   return (esp8266Cmd(txbuff, "OK", 100));
 }
 
+/**
+ * @brief      Read the rx buffer until on of the given retvals
+ *
+ * @param[in]  retvals  The retvals
+ * @param      buffer   The buffer
+ * @param      bufsiz   The bufsiz
+ * @param[in]  timeout  The timeout
+ *
+ * @return     { description_of_the_return_value }
+ */
+static int esp8266ReadSwitch(int retvals, char * buffer, int * bufsiz, int timeout)
+{
+  int index[NUM_RESPONSES];
+  int lens[NUM_RESPONSES];
+  int numstored, i, x, c, numlen;
 
+  if (!buffer || !bufsiz) return -1;
+
+  numlen = NUM_RESPONSES;
+  for (i = 0; i < numlen; i++)
+  {
+    index[i] = 0;
+    lens[i] = strlen(returnValues[i].retstr);
+  }
+
+  numstored = 0;
+  while((c = rxget(timeout)) > 0)
+  {
+     if (numstored < *bufsiz)
+     {
+       buffer[numstored] = c;
+       numstored++;
+
+       // Evaluate if this belongs to the
+       // list of return values
+       for(x = 0; x < numlen; x++)
+       {
+         if (c != returnValues[x].retstr[index[x]])  index[x] = 0;
+         if (c == returnValues[x].retstr[index[x]])
+           if(++(index[x]) >= lens[x])
+           {
+             if (retvals & returnValues[x].retval)
+             {
+               buffer[numstored] = 0;
+               *bufsiz = numstored;
+               DBG("\r\n**Got [%s], returning %d\r\n",
+                   buffer, returnValues[x].retval);
+               return returnValues[x].retval;
+             }
+           }
+       }
+
+       // Reset the buffer on a newline or linefeed
+       if ((numstored >= 2) &&
+           (buffer[numstored-2] == '\r') &&
+           (buffer[numstored-1] == '\n')
+         )
+           numstored = 0;
+
+     }else
+       break;
+  }
+
+  buffer[numstored] = 0;
+  *bufsiz = numstored;
+  DBG("\r\n**Got [%s], returning with -1\r\n", buffer);
+  return -1;
+}
 
 /*===========================================================================*/
 /* Module public functions.                                                  */
@@ -259,6 +384,7 @@ int espInit(void) {
   }
   else
   {
+    espStatus = WIFI_INITIALIZED;
     DBG("\r\nESP8266 Initialized\r\n");
   }
 
@@ -339,8 +465,16 @@ bool espHasIP(void)
   DBG("GW: %d.%d.%d.%d\r\n", ip_gateway[0],ip_gateway[2],ip_gateway[2],ip_gateway[3]);
   DBG("NM: %d.%d.%d.%d\r\n", ip_netmask[0],ip_netmask[2],ip_netmask[2],ip_netmask[3]);
 
-  if(ip_addr[0] != 0) return true;
-  return false;
+  if(ip_addr[0] != 0) 
+  {
+    espStatus = WIFI_AP_CONNECTED;
+    return true;
+  }
+  else
+  {
+    espStatus = WIFI_INITIALIZED;
+    return false; 
+  }
 }
 
 /**
@@ -377,4 +511,259 @@ void espTerm(char* str) {
 void espRead() {
   char buf[200];
   DBG("<%s\r\n",buf);
+}
+
+/**
+ * @brief      Returns true if the rx buffer has data
+ *
+ * @return     { description_of_the_return_value }
+ */
+bool esp8266HasData(void)
+{
+  if(espStatus != WIFI_AP_CONNECTED) return false;
+  if (serial_rx_write_pos > serial_rx_read_pos)
+  {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * @brief      Start a server channel
+ *
+ * @param[in]  channel  The channel
+ * @param[in]  type     The type
+ * @param[in]  port     The port
+ *
+ * @return     { description_of_the_return_value }
+ */
+int esp8266Server(int channel, int type, uint16_t port)
+{
+    int mode = 0;
+    (void)channel;
+    // TODO: Esp8266 firmware can not yet start a UDP
+    // server, so type here is always TCP
+    if (type == ESP_UDP) return -1;
+
+    chsnprintf(txbuff, TXBUFF_SIZE, "AT+CIPSERVER=%d,%d\r\n",
+        mode, port);
+
+    return esp8266Cmd(txbuff, "OK", 100);       
+}
+
+/**
+ * @brief      Connect to a server socket
+ *
+ * @param[in]  channel  The channel
+ * @param[in]  ip       server ip
+ * @param[in]  port     The port
+ * @param[in]  type     The type
+ *
+ * @return     { description_of_the_return_value }
+ */
+int esp8266Connect(int channel, const char * ip, uint16_t port, int type)
+{
+    // Simply send the data over the channel.
+    chsnprintf(txbuff, TXBUFF_SIZE, "AT+CIPSTART=%d,\"%s\",\"%s\",%d\r\n",
+        channel,
+        type == ESP_TCP ? "TCP":"UDP",
+        ip,
+        port);
+
+    // For my particular firmware AT+CIPSTART returns OK
+    return esp8266Cmd(txbuff, "OK" , 100);
+}
+
+/**
+ * @brief      Close selected channel
+ *
+ * @param[in]  channel  The channel
+ *
+ * @return     { description_of_the_return_value }
+ */
+bool esp8266Disconnect(int channel)
+{
+  chsnprintf(txbuff, TXBUFF_SIZE, "AT+CIPCLOSE=%d\r\n", channel);
+  return (esp8266Cmd(txbuff, "OK", 100));
+}
+
+/**
+ * @brief      Send a line of data over a given channel
+ *
+ * @param[in]  channel  The channel
+ * @param[in]  str      The string
+ *
+ * @return     { description_of_the_return_value }
+ */
+bool esp8266SendLine(int channel, const char * str)
+{
+  int datatosend = 0;
+
+  if (str)
+    datatosend = strlen(str) + 2;
+  else
+    datatosend = 2; // \r\n (empty lines)
+
+  chsnprintf(txbuff, TXBUFF_SIZE, "AT+CIPSEND=%d,%d\r\n",
+             channel,
+             datatosend);
+  // Wait untill the prompt
+  if (esp8266Cmd(txbuff, ">", 10))
+  {
+    DBG("\r\n>>Got the prompt! Sending rest of data!\r\n");
+    chsnprintf(txbuff, TXBUFF_SIZE, "%s\r\n",str);
+    esp8266Data(txbuff);
+
+    return esp8266ReadUntil("SEND OKr\r\n", READ_TIMEOUT);
+  }
+
+  return false;
+}
+
+/**
+ * @brief      Send the start transmission command
+ *
+ * @param[in]  channel     The channel
+ * @param[in]  datatosend  number of data bytes to send
+ *
+ * @return     { description_of_the_return_value }
+ */
+bool esp8266SendHeader(int channel, int datatosend)
+{
+  chsnprintf(txbuff, TXBUFF_SIZE, "AT+CIPSEND=%d,%d\r\n",
+             channel,
+             datatosend);
+
+  // Wait untill the prompt
+  if (esp8266Cmd(txbuff, ">", 10))
+  {
+    DBG(">>Got the command prompt! ... send the rest of the data!\r\n");
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * @brief      Send block of data
+ *
+ * @param[in]  data       The data
+ * @param[in]  waitforok  wait for the OK from the esp8266
+ *
+ * @return     { description_of_the_return_value }
+ */
+bool esp8266Send(const char * data, bool waitforok)
+{
+  // send data
+  esp8266Data(data);
+  
+  if (waitforok)
+  {
+      return esp8266ReadUntil("SEND OKr\r\n", READ_TIMEOUT);
+  }
+  return true;
+}
+
+/**
+ * @brief      Reads the rx for possible data
+ *
+ * @param      channel  out: channel, where the data occured
+ * @param      param    out: number of bytes received
+ * @param[in]  timeout  The timeout
+ *
+ * @return     return status of the esp ESP_RET_xxx
+ */
+int esp8266ReadRespHeader(int * channel, int * numbytes, int timeout)
+{
+  char *p = NULL;
+  int numread = 0;
+  int bufsiz = RXBUFF_SIZE;
+  int retval;
+
+  // Discard data until we receive part of the header
+  DBG(">>Waiting for message header ...\r\n");
+  // Read loop until we have a status
+  retval = esp8266ReadSwitch(ESP_RET_ERROR |
+                             ESP_RET_UNLINK |
+                             ESP_RET_LINKED |
+                             ESP_RET_CONNECT |
+                             ESP_RET_CLOSED |
+                             ESP_RET_SENT |
+                             ESP_RET_IPD, linebuff, &bufsiz, timeout);
+  DBG(">>Retval = %d\r\n", retval);
+  if(retval == ESP_RET_IPD)
+  {
+      DBG(">>Read the +IPD, reading message length and channel ..\r\n");
+      // Read header information (up until the ":")
+      memset(linebuff, 0, RXBUFF_SIZE);
+      if ((numread = esp8266ReadUntil(":", READ_TIMEOUT)) > 0)
+      {
+          // Parse header information for
+          // Channel and number of bytes
+          p = strtok(linebuff, ",");
+          if (p) *channel = atoi(p);
+          p = strtok(NULL, ",");
+          if (p) *numbytes = atoi(p);
+          DBG(">> Channel = %d, bytestoread = %d\r\n", *channel, *numbytes);
+      }
+      // cut the : from the rx
+      (void)rxget(0);
+  }
+
+  if ((retval == ESP_RET_CONNECT) ||
+      (retval == ESP_RET_CLOSED))
+  {
+      p = strtok(linebuff, ",");
+      if (p) *channel = atoi(p);
+      DBG(">>Read closed/connect status on channel %d.. \r\n", *channel);
+  }
+
+  return retval;
+}
+
+/**
+ * @brief      Read received TCP/UDP data
+ *
+ * @param      buffer       The buffer to store the data
+ * @param[in]  bytestoread  The bytestoread num bytes to read
+ *
+ * @return     number of bytes read
+ */
+int esp8266Read(char * buffer, int bytestoread)
+{
+  int numread = 0;
+  int c;
+
+  do {
+    //c = sdGetTimeout((SerialDriver *) usart, READ_TIMEOUT);
+    c = rxget(0);
+    if (c >= 0)
+    {
+        buffer[numread] = c; 
+        numread ++;
+    }else
+      break;
+  }while(numread < bytestoread);
+
+  //#ifdef DEBUG
+  if (numread > 0)
+  { 
+    DBG("\r\n>>Read %d bytes ... dumping data\r\n", numread);
+    hexdump(dbgstrm, buffer, numread);
+  }
+  //#endif
+
+  return numread;
+}
+
+/**
+ * @brief      Read single byte from input buffer
+ *
+ * @param[in]  timeout  The timeout
+ *
+ * @return     { description_of_the_return_value }
+ */
+int esp8266Get(int timeout)
+{
+  return rxget(timeout);
 }

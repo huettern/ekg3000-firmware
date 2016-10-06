@@ -14,6 +14,11 @@
 
 #define QUEUEBUF_SIZ 1500
 
+
+static BaseSequentialStream * dbgstrm = bssusb;
+#define DBG(X, ...)    chprintf(dbgstrm, X, ##__VA_ARGS__ )
+// #define DBG(X, ...)
+
 // A fixed static array of input queues
 // Here we define the static buffers for
 // our input queues
@@ -39,10 +44,7 @@ static INPUTQUEUE_DECL(iq2, queue_buff2, QUEUEBUF_SIZ, notify, NULL);
 static INPUTQUEUE_DECL(iq3, queue_buff3, QUEUEBUF_SIZ, notify, NULL);
 static INPUTQUEUE_DECL(iq4, queue_buff4, QUEUEBUF_SIZ, notify, NULL);
 
-//static OUTPUTQUEUE_DECL(iqin, queue_buffin, QUEUEBUF_SIZ, NULL, NULL);
-
-
-esp_channel _esp_channels[MAX_CONNECTIONS] = {
+esp_channel_t _esp_channels[MAX_CONNECTIONS] = {
       { 0, ESP_TCP, CHANNEL_UNUSED, false, "", 0, "127.0.0.1", 0, false, &iq0 , 0},
       { 1, ESP_TCP, CHANNEL_UNUSED, false, "", 0, "127.0.0.1", 0, false, &iq1 , 0},
       { 2, ESP_TCP, CHANNEL_UNUSED, false, "", 0, "127.0.0.1", 0, false, &iq2 , 0},
@@ -50,11 +52,20 @@ esp_channel _esp_channels[MAX_CONNECTIONS] = {
       { 4, ESP_TCP, CHANNEL_UNUSED, false, "", 0, "127.0.0.1", 0, false, &iq4 , 0},
 };
 
-static BaseSequentialStream * dbgstrm = bssusb;
-#define DBG(X, ...)    chprintf(dbgstrm, X, ##__VA_ARGS__ )
-// #define DBG(X, ...)
+// uart write mutex
+static MUTEX_DECL(usartmtx);
 
-esp_channel * getChannel(int d)
+/*===========================================================================*/
+/* Module public functions.                                                  */
+/*===========================================================================*/
+/**
+ * @brief      Return the esp txrx channel handle
+ *
+ * @param[in]  d channel number
+ *
+ * @return     The channel.
+ */
+esp_channel_t * getChannel(int d)
 {
     if ((d >= 0 ) && ( d < MAX_CONNECTIONS))
         return &_esp_channels[d];
@@ -62,10 +73,12 @@ esp_channel * getChannel(int d)
     return NULL;
 }
 
-
-static MUTEX_DECL(usartmtx);
-
-static void resetChannel(esp_channel * ch)
+/**
+ * @brief      Reset a channel to defaults
+ *
+ * @param      ch    { parameter_description }
+ */
+static void resetChannel(esp_channel_t * ch)
 {
     if (ch)
     {
@@ -81,12 +94,13 @@ static void resetChannel(esp_channel * ch)
     }
 }
 
+
 static void onConnectionStatus(espConStatus_t * constatus)
 {
 
   if(constatus)
   {
-    esp_channel * ch = getChannel(constatus->id);
+    esp_channel_t * ch = getChannel(constatus->id);
 
     DBG(
              ">> Id[%d] Type[%d] IP [%s], port[%d], isserver[%d]\r\n",
@@ -124,7 +138,7 @@ static void onLineStatus(espIPStatus_t * ipstatus)
 
   for (int i = 0; i < MAX_CONNECTIONS; i++ )
   {
-      esp_channel * ch = getChannel(i);
+      esp_channel_t * ch = getChannel(i);
       if (ch)
       {
           // If we have a connection that has changed
@@ -148,67 +162,61 @@ static void onLineStatus(espIPStatus_t * ipstatus)
 }
 
 static THD_WORKING_AREA(channelListenerThreadWA, 512);
-static msg_t channelListenerThread(void * arg)
+static THD_FUNCTION(channelListenerThread, arg)
 {
     // continuously reads the tx circular buffers for
     // each connection and send data to wifi chip
     (void)arg;
-    int retval, numread, param, numwritten;
+    int retval, numread, numbytes, numwritten;
     int chanid, c; //, pollcount = 0;
-    esp_channel * channel;
+    esp_channel_t * channel;
     // SerialDriver * sdp = getSerialDriver();
 
     chRegSetThreadName("wifichannelListenerThread");
 
     while(1)
     {
-        // Check if there's a message pending on the 
-        // usart
-        //chprintf((BaseSequentialStream *)dbgstrm, "<<Waiting for data...\r\n");
+        // Let other threads run ...
+        chThdSleepMicroseconds(1000*1000);
+
+        // Check if there's a message pending on the usart
+        // DBG("<<Waiting for data...\r\n");
         if (!chMtxTryLock(&usartmtx))
         {
           chThdSleepMicroseconds(10);
           continue;
         }
 
-        //chprintf((BaseSequentialStream *)dbgstrm, "<< Got lock...\r\n");
-        //if (esp8266HasData())
-        if (0)
+        // DBG("<< Got lock...\r\n");
+        if (esp8266HasData())
         {
-            //chprintf((BaseSequentialStream *)dbgstrm, "<< Got data ...\r\n!");
+            DBG("<< Got data ...\r\n!");
             // Read the data and determine to which connection
             // it needs to be sent to
-            //retval = esp8266ReadRespHeader(&chanid, &param, 2000);
+            retval = esp8266ReadRespHeader(&chanid, &numbytes, 2);
             retval = 0;
-            if ((param > 0) && (retval == ESP_RET_IPD))
+            if ((numbytes > 0) && (retval == ESP_RET_IPD))
             {
                 channel = getChannel(chanid);
-                //chprintf((BaseSequentialStream *)dbgstrm, "<< %d Data on channel %d\r\n", bytestoread, chanid);
+                DBG("<< %d Data on channel %d\r\n", numbytes, chanid);
             
                 // Read and push the data to the input queue of the
                 // designated connection.
                 if (channel)
                 {
-                  //chprintf((BaseSequentialStream *)dbgstrm, "<< Reading %d data ...\r\n", bytestoread);
+                  DBG("<< Reading %d data ...\r\n", numbytes);
                   numread = 0; numwritten = 0;
-                  while(numread < param)
+                  while(numread < numbytes)
                   {
-                    // c = sdGet(sdp); //  c = sdGetTimeout(sdp, 1000);
+                    c = esp8266Get(0);
                     if (c >= 0) 
                     {
-                        // buffer[numread] = c;
-                        // Push the character into the queue
                         if (chIQPutI(channel->iqueue, c) == Q_OK)
                             numwritten++;
-
                         numread ++;
                     }
                   }
-
-                  if (esp8266ReadUntil("OK\r\n", 1000))
-                  {
-                    //chprintf((BaseSequentialStream *)dbgstrm, "<< Wrote %d data to queue\r\n", numwritten);
-                  }
+                  DBG("<< Wrote %d data to queue\r\n", numwritten);
                 }
             }
 
@@ -220,20 +228,31 @@ static msg_t channelListenerThread(void * arg)
               //esp8266CmdCallback("AT+CIPSTATUS", "OK\r\n", onLineStatus);
               // esp8266GetIpStatus(onLineStatus,onConnectionStatus);
             }
+            if (retval == ESP_RET_CONNECT)
+            {
+              channel = getChannel(chanid);
+              channel->status = CHANNEL_CONNECTED;
+            }
+            if (retval == ESP_RET_CLOSED)
+            {
+              channel = getChannel(chanid);
+              channel->status = CHANNEL_DISCONNECTED;
+            }
         } // has data
-
         chMtxUnlock(&usartmtx);
-
-        // Let other threads run ...
-        chThdSleepMicroseconds(10);
     }
 
     return Q_OK;
 }
 
 
-
-// Channel open returns an unused, empty channel
+/**
+ * @brief      Channel open returns an unused, empty channel
+ *
+ * @param[in]  conntype  The conntype
+ *
+ * @return     number of empty channel
+ */
 int channelOpen(int conntype)
 {
     for (int i = 0; i < MAX_CONNECTIONS; i++)
@@ -256,10 +275,20 @@ int channelOpen(int conntype)
     return -1;
 }
 
+/**
+ * @brief      Connect to a server on a channel. Before this, open the channel
+ * using channelOpen 
+ *
+ * @param[in]  channel    The channel
+ * @param[in]  ipaddress  The ipaddress
+ * @param[in]  port       The port
+ *
+ * @return     status
+ */
 int channelConnect(int channel, const char * ipaddress, uint16_t port)
 {
     int status = -1, retval;
-    esp_channel * ch = getChannel(channel);
+    esp_channel_t * ch = getChannel(channel);
 
     if(!ch) return -1; // channel does not exist
 
@@ -269,7 +298,7 @@ int channelConnect(int channel, const char * ipaddress, uint16_t port)
     }
 
     // A connection request needs to lock the usart
-    //chprintf((BaseSequentialStream *)dbgstrm, "<< Acquiring lock ...\r\n");
+    DBG("<< Acquiring lock ...\r\n");
     chMtxLock(&usartmtx);
 
     DBG( "<< Opening channel[%d] [%s:%d] with %d\r\n",
@@ -279,7 +308,6 @@ int channelConnect(int channel, const char * ipaddress, uint16_t port)
     // chprintf((BaseSequentialStream *)dbgstrm, "<< Connect returned %d!\r\n", retval);
     if ((retval == ESP_RET_OK) || (retval == ESP_RET_LINKED))
     {
-
         // Once connected, set the status of the channel
         // array.
         ch->status = CHANNEL_CONNECTED;
@@ -296,27 +324,42 @@ int channelConnect(int channel, const char * ipaddress, uint16_t port)
 
     // Unlock the usart here
     chMtxUnlock(&usartmtx);
-    //chprintf((BaseSequentialStream *)dbgstrm,"<< Unlocked\r\n");
+    DBG("<< Unlocked\r\n");
 
     // return with status
     return status;
 }
 
-
+/**
+ * @brief      check if selected channel is connected
+ *
+ * @param[in]  channel  The channel
+ *
+ * @return     true if connected
+ */
 bool channelIsConnected(int channel)
 {
-  esp_channel * ch = getChannel(channel);
+  esp_channel_t * ch = getChannel(channel);
   if (ch) return (ch->status == CHANNEL_CONNECTED);
 
   return false;
 }
 
+/**
+ * @brief      Start an openned channel as server
+ *
+ * @param[in]  channel  The channel
+ * @param[in]  type     The type
+ * @param[in]  port     The port
+ *
+ * @return     { description_of_the_return_value }
+ */
 int channelServer(int channel, int type, uint16_t port)
 {
     // to create a ESP_tcp server, we don't need a
     // channel id and type (since for now it only 
     // supports ESP_TCP server)
-    esp_channel * ch = getChannel(channel);
+    esp_channel_t * ch = getChannel(channel);
 
     if(!ch) return -1;
 
@@ -341,13 +384,18 @@ int channelServer(int channel, int type, uint16_t port)
     return 0;
 }
 
-
-// Closes the channel
+/**
+ * @brief      Close a given channel
+ *
+ * @param[in]  channel  The channel
+ *
+ * @return     { description_of_the_return_value }
+ */
 int channelClose(int channel)
 {
     int retval = -1;
 
-    esp_channel * ch = getChannel(channel);
+    esp_channel_t * ch = getChannel(channel);
 
     if (!ch) return -1;
 
@@ -365,25 +413,14 @@ int channelClose(int channel)
     return retval;
 }
 
-#if 0
-static char sendbuff[1024];
-int channelPrint(int channel, const char * format, ...)
-{
-  int numwrite = 0, numwritten;
-  va_list ap;
-  va_start(ap, format);
-
-  chMtxLock(&usartmtx);
-  numwrite = vsnprintf(sendbuff, 1024, format, ap);
-  numwritten = channelSend(channel, sendbuff, numwrite);
-
-  chMtxUnlock();
-  va_end(ap);
-
-  return numwritten;
-}
-#endif
-
+/**
+ * @brief      Send a line through the channel
+ *
+ * @param[in]  channel  The channel
+ * @param[in]  msg      The message
+ *
+ * @return     { description_of_the_return_value }
+ */
 bool channelSendLine(int channel, const char * msg)
 {
   bool result = false;
@@ -399,6 +436,15 @@ bool channelSendLine(int channel, const char * msg)
   return result;
 }
 
+/**
+ * @brief      Send a message through the channel
+ *
+ * @param[in]  channel  The channel
+ * @param[in]  msg      The message
+ * @param[in]  msglen   The msglen
+ *
+ * @return     { description_of_the_return_value }
+ */
 int channelSend(int channel, const char * msg, int msglen)
 {
     int numsend = -1;
@@ -408,14 +454,14 @@ int channelSend(int channel, const char * msg, int msglen)
       // Lock the usart ...
       chMtxLock(&usartmtx);
 
-      //chprintf((BaseSequentialStream *) dbgstrm, ">>Sending Data ...\r\n");
+      DBG(">>Sending Data ...\r\n");
       // Send the message with a blocking call...
       if ( esp8266SendHeader(channel, msglen))
       {
-        esp_channel * ch = getChannel(channel);
+        esp_channel_t * ch = getChannel(channel);
         // For UDP, response is received sometimes right away
         // before we even get the "SEND OK" line
-        numsend = esp8266Send(msg, msglen, (ch->type == ESP_TCP));
+        numsend = esp8266Send(msg, (ch->type == ESP_TCP));
       }
 
       // Unlock the usart ...
@@ -425,9 +471,20 @@ int channelSend(int channel, const char * msg, int msglen)
     return numsend;
 }
 
+/**
+ * @brief      Open a new connection on an open channel and send a message
+ *
+ * @param[in]  channel    The channel
+ * @param[in]  msg        The message
+ * @param[in]  msglen     The msglen
+ * @param[in]  ipaddress  The ipaddress
+ * @param[in]  port       The port
+ *
+ * @return     { description_of_the_return_value }
+ */
 int channelSendTo(int channel, const char * msg, int msglen, const char * ipaddress, uint16_t port)
 {
-  esp_channel * ch = getChannel(channel);
+  esp_channel_t * ch = getChannel(channel);
   if(ch)
   {
     if (channelConnect(channel, ipaddress, port) < 0)
@@ -438,22 +495,30 @@ int channelSendTo(int channel, const char * msg, int msglen, const char * ipaddr
   return -1;
 }
 
-
-
+/**
+ * @brief      Read from a channel
+ *        Channel read reads from an input queue if data
+ *        is available, otherwise it blocks until all msglen
+ *        data is read.
+ *
+ * @param[in]  chanid  The chanid
+ * @param      buff    The buffer
+ * @param[in]  msglen  The msglen
+ *
+ * @return     { description_of_the_return_value }
+ */
 int channelRead(int chanid, char * buff, int msglen)
 {
-    // Channel read reads from an input queue if data
-    // is available, otherwise it blocks until all msglen
-    // data is read.
+    
     int numread = 0;
     int data;
-    esp_channel * channel = getChannel(chanid);
+    esp_channel_t * channel = getChannel(chanid);
 
-    // chprintf((BaseSequentialStream *) dbgstrm, ">>Reading data from queue\r\n");
+    DBG(">>Reading data from queue\r\n");
 
     if (!channel)
     {
-      // chprintf((BaseSequentialStream *) dbgstrm, ">>Invalid channel\r\n");
+      DBG(">>Invalid channel\r\n");
       return 0;
     }
 
@@ -476,14 +541,23 @@ int channelRead(int chanid, char * buff, int msglen)
       }
     }while((data >= 0) && (numread < msglen));
 
-    // chprintf((BaseSequentialStream *) dbgstrm, ">>Read %d data from queue\r\n", numread);
+    DBG(">>Read %d data from queue\r\n", numread);
     return numread;
 }
 
+/**
+ * @brief      Read a line from the channel
+ *
+ * @param[in]  chanid  The chanid
+ * @param      buff    The buffer
+ * @param[in]  buflen  The buflen
+ *
+ * @return     { description_of_the_return_value }
+ */
 int channelReadLine(int chanid, char * buff, int buflen)
 {
     int data, numread = 0;
-    esp_channel * channel = getChannel(chanid);
+    esp_channel_t * channel = getChannel(chanid);
     if (channel)
     {
         // Read from the input queue when there's data
@@ -510,9 +584,16 @@ int channelReadLine(int chanid, char * buff, int buflen)
     return numread;
 }
 
+/**
+ * @brief      Get single character from input
+ *
+ * @param[in]  chanid  The chanid
+ *
+ * @return     { description_of_the_return_value }
+ */
 int channelGet(int chanid)
 {
-  esp_channel * channel = getChannel(chanid);
+  esp_channel_t * channel = getChannel(chanid);
 
   if (!channelIsConnected(chanid) && chIQIsEmptyI(channel->iqueue))
     return -1;
@@ -535,7 +616,19 @@ int channelGet(int chanid)
  */
 int wifiInit()
 {
-  return espInit();
+  int ret = espInit();
+
+  if(ret == ESP_RET_OK)
+  {
+    // Start the channel read thread
+    chThdCreateStatic(channelListenerThreadWA, 
+      sizeof(channelListenerThreadWA),
+      NORMALPRIO, 
+      channelListenerThread, 
+      NULL);
+  }
+
+  return ret;
 }
 
 
@@ -566,9 +659,30 @@ int wifiConnectAP(const char * ssid, const char * password)
         return -1;
     }
 
-    // Start the channel read thread
-    // chThdCreateStatic(channelListenerThreadWA, sizeof(channelListenerThreadWA),
-            // NORMALPRIO, channelListenerThread, NULL);
-
     return 0;
 }
+
+
+void channelStatus(BaseSequentialStream *chp)
+{
+  chprintf(chp, "id   sta   ip   port   cnt\r\n");
+  for(int i = 0; i < MAX_CONNECTIONS; i++)
+  {
+    chprintf(chp, "%d   %d   %s   %d   %d\r\n",
+      _esp_channels[i].id,
+      _esp_channels[i].status,
+      _esp_channels[i].ipaddress,
+      _esp_channels[i].port,
+      _esp_channels[i].usecount);
+  }
+}
+
+
+
+
+
+
+
+
+
+
