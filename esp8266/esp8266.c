@@ -208,6 +208,9 @@ bool esp8266ReadUntil(const char * resp, int timeout)
     int index = 0;
     int targetLength = strlen(resp);
     int ctr = 0;
+
+    if(resp == NULL) return true;
+
     memset(linebuff, 0, LINEBUFF_SIZE);
 
     for(; serial_rx_read_pos < serial_rx_write_pos; )
@@ -250,7 +253,8 @@ bool esp8266Cmd(const char * cmd, const char * rsp, int cmddelay)
     chThdSleepMilliseconds(cmddelay);
   }
 
-  return esp8266ReadUntil(rsp, READ_TIMEOUT);
+  if(rsp != NULL) return esp8266ReadUntil(rsp, READ_TIMEOUT);
+  return true;
 }
 
 /**
@@ -563,15 +567,18 @@ int esp8266Server(int channel, int type, uint16_t port)
  */
 int esp8266Connect(int channel, const char * ip, uint16_t port, int type)
 {
-    // Simply send the data over the channel.
-    chsnprintf(txbuff, TXBUFF_SIZE, "AT+CIPSTART=%d,\"%s\",\"%s\",%d\r\n",
-        channel,
-        type == ESP_TCP ? "TCP":"UDP",
-        ip,
-        port);
+  int bufsiz = LINEBUFF_SIZE;
 
-    // For my particular firmware AT+CIPSTART returns OK
-    return esp8266Cmd(txbuff, "OK" , 100);
+  // Simply send the data over the channel.
+  chsnprintf(txbuff, TXBUFF_SIZE, "AT+CIPSTART=%d,\"%s\",\"%s\",%d\r\n",
+      channel,
+      type == ESP_TCP ? "TCP":"UDP",
+      ip,
+      port);
+
+  // For my particular firmware AT+CIPSTART returns OK
+  if(esp8266Cmd(txbuff, "OK" , 100)) return ESP_RET_OK;
+  return ESP_RET_ERROR;
 }
 
 /**
@@ -677,7 +684,7 @@ int esp8266ReadRespHeader(int * channel, int * numbytes, int timeout)
 {
   char *p = NULL;
   int numread = 0;
-  int bufsiz = RXBUFF_SIZE;
+  int bufsiz = LINEBUFF_SIZE;
   int retval;
 
   // Discard data until we receive part of the header
@@ -695,14 +702,15 @@ int esp8266ReadRespHeader(int * channel, int * numbytes, int timeout)
   {
       DBG(">>Read the +IPD, reading message length and channel ..\r\n");
       // Read header information (up until the ":")
+      // +IPD,0,5:asdf
       memset(linebuff, 0, RXBUFF_SIZE);
       if ((numread = esp8266ReadUntil(":", READ_TIMEOUT)) > 0)
       {
           // Parse header information for
           // Channel and number of bytes
-          p = strtok(linebuff, ",");
+          p = strtok(linebuff,":,");
           if (p) *channel = atoi(p);
-          p = strtok(NULL, ",");
+          p = strtok(NULL, ":,");
           if (p) *numbytes = atoi(p);
           DBG(">> Channel = %d, bytestoread = %d\r\n", *channel, *numbytes);
       }

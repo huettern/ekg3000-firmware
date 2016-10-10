@@ -23,8 +23,11 @@
 #define SERVER_IP "192.168.0.178"
 #define SERVER_PORT 8266
 
-#define WIFI_SSID "host huetter tom"
-#define WIFI_PW "kaffeetasse"
+// #define WIFI_SSID "host huetter tom"
+// #define WIFI_PW "kaffeetasse"
+
+#define WIFI_SSID "UPCB91F9C8"
+#define WIFI_PW "n7eZvztsrdfk"
 
 
 static THD_WORKING_AREA(waWifi, 256);
@@ -69,11 +72,9 @@ static void fWiFiStateMachine(void)
   switch(state)
   {
     case WIFI_DEINIT:
-      chprintf(bssusb, "WIFIAPP:WIFI_DEINIT\r\n");
       if(wifiInit() == ESP_RET_OK) state=WIFI_INITIALIZED;
       break;
     case WIFI_INITIALIZED:
-      chprintf(bssusb, "WIFIAPP:WIFI_INITIALIZED\r\n");
       if(blConnectAP) 
       {
         wifiConnectAP(wifi_ssid, wifi_pw);
@@ -82,11 +83,9 @@ static void fWiFiStateMachine(void)
       else if(wifiHasIP()) state=WIFI_CONNECTED;
       break;
     case WIFI_CONNECTED:
-      chprintf(bssusb, "WIFIAPP:WIFI_CONNECTED\r\n");
       if(blSendDataRdy) state=WIFI_START_TRANSMISSION;
       break;
     case WIFI_START_TRANSMISSION:
-      chprintf(bssusb, "WIFIAPP:WIFI_START_TRANSMISSION\r\n");
       // channelSendTo(channelOpen(TCP),txmsg,txmsg_size,SERVER_IP,SERVER_PORT);
       blSendDataRdy = false;
       state=WIFI_CONNECTED;
@@ -119,6 +118,16 @@ void wifiAddAP(const char * ssid, const char * password)
   }
   memcpy(wifi_ssid, ssid, strlen(ssid));
   memcpy(wifi_pw, password, strlen(password));
+  blConnectAP = true;
+}
+
+/**
+ * @brief      Connect to the default AP
+ */
+void wifiConnectDefaultAP(void)
+{
+  memcpy(wifi_ssid, WIFI_SSID, strlen(WIFI_SSID));
+  memcpy(wifi_pw, WIFI_PW, strlen(WIFI_PW));
   blConnectAP = true;
 }
 

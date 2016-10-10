@@ -194,7 +194,6 @@ static THD_FUNCTION(channelListenerThread, arg)
             // Read the data and determine to which connection
             // it needs to be sent to
             retval = esp8266ReadRespHeader(&chanid, &numbytes, 2);
-            retval = 0;
             if ((numbytes > 0) && (retval == ESP_RET_IPD))
             {
                 channel = getChannel(chanid);
@@ -206,6 +205,7 @@ static THD_FUNCTION(channelListenerThread, arg)
                 {
                   DBG("<< Reading %d data ...\r\n", numbytes);
                   numread = 0; numwritten = 0;
+                  chSysLock();
                   while(numread < numbytes)
                   {
                     c = esp8266Get(0);
@@ -216,6 +216,7 @@ static THD_FUNCTION(channelListenerThread, arg)
                         numread ++;
                     }
                   }
+                  chSysUnlock();
                   DBG("<< Wrote %d data to queue\r\n", numwritten);
                 }
             }
@@ -308,6 +309,7 @@ int channelConnect(int channel, const char * ipaddress, uint16_t port)
     // chprintf((BaseSequentialStream *)dbgstrm, "<< Connect returned %d!\r\n", retval);
     if ((retval == ESP_RET_OK) || (retval == ESP_RET_LINKED))
     {
+      DBG("<< Channel connected!\r\n");
         // Once connected, set the status of the channel
         // array.
         ch->status = CHANNEL_CONNECTED;
@@ -317,14 +319,15 @@ int channelConnect(int channel, const char * ipaddress, uint16_t port)
         ch->ispassive = false;
         ch->isservergenerated = false;
         // reset the queue
+        chSysLock();
         chIQResetI(ch->iqueue);
+        chSysUnlock();
 
         status = 0; // no error, connected
     }
 
     // Unlock the usart here
     chMtxUnlock(&usartmtx);
-    DBG("<< Unlocked\r\n");
 
     // return with status
     return status;
@@ -523,8 +526,10 @@ int channelRead(int chanid, char * buff, int msglen)
     }
 
     // If disconnected and no data currently on queue
+    chSysLock();
     if (!channelIsConnected(chanid) && chIQIsEmptyI(channel->iqueue))
       return -1;
+    chSysUnlock();
 
     // Quirk ... we need to wait indefinitely
     // on the first byte read ..
@@ -595,8 +600,12 @@ int channelGet(int chanid)
 {
   esp_channel_t * channel = getChannel(chanid);
 
+  chSysLock();
   if (!channelIsConnected(chanid) && chIQIsEmptyI(channel->iqueue))
+  {
+    chSysUnlock();
     return -1;
+  }
 
   if (channel)
     return chIQGet(channel->iqueue);

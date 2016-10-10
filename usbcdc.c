@@ -73,6 +73,7 @@ static void cmd_initesp(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)argc;
   (void)argv;
   wifiStart();
+  // wifiConnectDefaultAP();
 }
 static void cmd_espterm(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
