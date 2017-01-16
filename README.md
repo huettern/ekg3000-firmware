@@ -6,6 +6,7 @@ pro3-firmware
 Requires an arm-none-eabi- set of gcc tools
 
     git clone --recursive https://github.com/noah95/pro3-firmware.git
+    git submodule update --init --recursive
 
 ### Build
 
