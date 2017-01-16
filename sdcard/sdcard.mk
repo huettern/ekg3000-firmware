@@ -1,0 +1,3 @@
+SDCARDSRC = $(SDCARD)/sdcard.c
+
+SDCARDINC = $(SDCARD)/
