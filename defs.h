@@ -1,5 +1,5 @@
 /*
-   EKG3000 - Copyright (C) 2016 FHNW Project 2 Team 2
+   EKG3000 - Copyright (C) 2016 FHNW Project 3 Team 2
  */
 
 /**
@@ -20,7 +20,7 @@
 
 #define DEFS_THD_IDLE_WA_SIZE 			0x500
 #define DEFS_THD_UI_WA_SIZE 			110
-#define DEFS_THD_LEDCONTROL_WA_SIZE		128
+#define DEFS_THD_LEDCONTROL_WA_SIZE		512
 #define DEFS_THD_ANALOG_WA_SIZE 		512
 #define DEFS_THD_SHELL_WA_SIZE 			2048
 #define DEFS_THD_WIFIAPP_WA_SIZE 		2048
@@ -41,8 +41,9 @@
 #define DEFS_WIFIAPP_DBG		TRUE
 #define DEFS_ESP_DBG			TRUE
 #define DEFS_ANALOG_DBG			TRUE
-#define DEFS_SDC_DBG			TRUE
+#define DEFS_SDC_DBG			FALSE
 #define DEFS_UI_DBG				FALSE
+#define DEFS_STATE_DBG			FALSE
 
 
 /*===========================================================================*/

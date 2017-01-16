@@ -136,6 +136,7 @@ CSRC = $(STARTUPSRC) \
        $(LIBEMQTTSRC) \
        usbcfg.c \
        main.c \
+       state.c \
        usbcdc.c \
        util.c \
        ui.c

@@ -1,5 +1,5 @@
 /*
-   EKG3000 - Copyright (C) 2016 FHNW Project 2 Team 2
+   EKG3000 - Copyright (C) 2016 FHNW Project 3 Team 2
  */
 
 /**
@@ -173,6 +173,7 @@ static uint32_t nSamples = 0;
 static uint32_t sampleCtr = 0;
 
 static bool isSampling = false;
+static bool blEnableLED = false;
 
 static FIL fp;
 static mutex_t mtx;
@@ -218,8 +219,8 @@ static THD_FUNCTION(adcThread, arg)
       // pulse recognition here
       if(unfiltered[ctr + of] < umin) umin = unfiltered[ctr + of];
       if(unfiltered[ctr + of] > umax) umax = unfiltered[ctr + of];
-      if(unfiltered[ctr + of] > (umin+(PULSE_TRSH*(umax-umin))) ) UI_SET_LED1(100);
-      else UI_SET_LED1(0);
+      if((unfiltered[ctr + of] > (umin+(PULSE_TRSH*(umax-umin)))) && blEnableLED ) UI_SET_LED1(100);
+      else if(blEnableLED) UI_SET_LED1(0);
       umin *= 1.0 + WINDOW_SHRINK_FACTOR;
       umax *= 1.0 - WINDOW_SHRINK_FACTOR;
 
@@ -349,6 +350,15 @@ bool anIsSampling(void)
   return isSampling;
 }
 
+/**
+ * @brief      Set the LED status enabled
+ *
+ * @param[in]  on    true for on, false for off
+ */
+void anLED(bool on)
+{
+  blEnableLED = on;
+}
 
 /*===========================================================================*/
 /* callbacks                                                                 */

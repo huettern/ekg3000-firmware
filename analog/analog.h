@@ -1,5 +1,5 @@
 /*
-   EKG3000 - Copyright (C) 2016 FHNW Project 2 Team 2
+   EKG3000 - Copyright (C) 2016 FHNW Project 3 Team 2
  */
 
 /**
@@ -24,6 +24,7 @@
 /* public function prototypes                                                */
 /*===========================================================================*/
 void anInit(void);
+void anLED(bool on);
 void anSampleN(uint32_t n);
 void anSampleT(uint32_t t);
 bool anIsSampling(void);

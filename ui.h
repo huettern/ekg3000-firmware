@@ -1,5 +1,5 @@
 /*
-   EKG3000 - Copyright (C) 2016 FHNW Project 2 Team 2
+   EKG3000 - Copyright (C) 2016 FHNW Project 3 Team 2
  */
 
 /**
@@ -68,7 +68,7 @@ void uiInit(void);
 bool gets0pushed (void);
 bool gets1pushed (void);
 bool gets2pushed (void);
-
+bool gets2longPushed (void);
 
 
 #endif //#ifndef _UI_H

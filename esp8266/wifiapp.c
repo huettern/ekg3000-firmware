@@ -1,5 +1,5 @@
 /*
-   EKG3000 - Copyright (C) 2016 FHNW Project 2 Team 2
+   EKG3000 - Copyright (C) 2016 FHNW Project 3 Team 2
  */
 
 /**
@@ -121,7 +121,7 @@ static mutex_t mtx;
 static uint8_t apConDlyCtr = 0;
 
 static bool blSendDataRdy = false;
-static bool blConnectAP = false;
+static bool blDefaultAPAvail = false;
 static bool blMQTTRunning = false;
 static bool blStartWPS = false;
 static bool blStartBulkTransfer = false;
@@ -195,12 +195,12 @@ static void fWiFiStateMachine(void)
       // check if WPS connection start
       if(blStartWPS == true) state=WIFI_WPS;
       // check if connect to default AP
-      else if (++apConDlyCtr >= AP_CONNECT_DELAY)
-      {
-        wifiConnectAP(wifi_ssid, wifi_pw);
-        blConnectAP = false;
-        apConDlyCtr = 0;
-      }
+      // else if (++apConDlyCtr >= AP_CONNECT_DELAY)
+      // {
+      //   wifiConnectAP(wifi_ssid, wifi_pw);
+      //   blDefaultAPAvail = false;
+      //   apConDlyCtr = 0;
+      // }
       else if(blGotoSleep) state = WIFI_SLEEP;
       break;
     case WIFI_CONNECTED:
@@ -326,7 +326,7 @@ static bool wifiAppInit(void)
     }
     DBG("Read config file: SSID=\"%s\" PW=\"%s\"\r\n", wifi_ssid, wifi_pw);
     f_close(&fp);
-    blConnectAP = true;
+    blDefaultAPAvail = true;
   }
   else
   {
@@ -666,7 +666,18 @@ void wifiAddAP(const char * ssid, const char * password)
   }
   memcpy(wifi_ssid, ssid, strlen(ssid));
   memcpy(wifi_pw, password, strlen(password));
-  blConnectAP = true;
+  blDefaultAPAvail = true;
+}
+
+/**
+ * @brief      Connects to the default WiFi stored on the sd card
+ */
+void wifiConnectDefaultAP(void)
+{
+  if(blDefaultAPAvail == true)
+  {
+    wifiConnectAP(wifi_ssid, wifi_pw);
+  }
 }
 
 /**
