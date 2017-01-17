@@ -53,7 +53,12 @@ static BaseSequentialStream * dbgstrm = bssusb;
 #define SINGLE_ENDED_CONFIG TRUE
 
 #ifdef SINGLE_ENDED_CONFIG
-  #define ADC_GRP1_CHANNEL        6 // SDADC 3 Channel 6
+  // #define ADC_GRP1_CHANNEL        6 // SDADC 3 Channel 6
+  // #define ADC_GPIO_PORT GPIOD
+  // #define ADC_GPIO_PIN 8
+  #define ADC_GRP1_CHANNEL        8 // SDADC 3 Channel 6
+  #define ADC_GPIO_PORT GPIOB
+  #define ADC_GPIO_PIN 14
 #else
   #define ADC_GRP1_CHANNEL        8 // SDADC 3 Channel 8
 #endif
@@ -61,6 +66,7 @@ static BaseSequentialStream * dbgstrm = bssusb;
 #define SAMPLERATE 1000 // Hz
 #define TIMER_BASE_CLOCK 10000
 #define DOWNSAMPLING_FACTOR 4
+#define ENABLE_AVERAGING TRUE
 
 #define VREF (float)3.3
 #define ADC_TO_FLOAT_FACTOR (float)(VREF/(float)0xffff)
@@ -133,8 +139,10 @@ static const ADCConversionGroup adcgrpcfg1 = {
     SDADC_JCHGR_CH(ADC_GRP1_CHANNEL),
     {                       
       #ifdef SINGLE_ENDED_CONFIG
-        SDADC_CONFCHR1_CH6(0),
-        SDADC_CONFCHR1_CH6(0),
+        // SDADC_CONFCHR1_CH6(0),
+        // SDADC_CONFCHR1_CH6(0),
+        SDADC_CONFCHR2_CH8(0),
+        SDADC_CONFCHR2_CH8(0),
       #else
         SDADC_CONFCHR2_CH8(0),
         SDADC_CONFCHR2_CH8(0),
@@ -191,12 +199,13 @@ static THD_FUNCTION(adcThread, arg)
 {
   (void)arg;
   static uint16_t ctr = 0;
+  static uint16_t ctr2 = 0;
   static uint16_t swap = 0;
   static uint16_t of = 0;
+  static float mean = 0;
   FRESULT res;
   char str[32];
   UINT size;
-  uint8_t downsample;
 
   tpAdc = chThdGetSelfX();
   chRegSetThreadName(DEFS_THD_ANALOG_NAME);
@@ -231,18 +240,37 @@ static THD_FUNCTION(adcThread, arg)
     }
     if(isSampling)
     {
-      downsample = 0;
-      for(ctr = 0; ctr < ADC_GRP1_BUF_DEPTH/2; )
-      {      
-        // store data
-        DBG("\rRead: %d samples", sampleCtr);
-        chsnprintf(str,32,"%1.5f ",unfiltered[ctr + of]);
-        size = strlen(str);
-        res = f_write(&fp, str, size, &size);
-        if(res != FR_OK) DBG("ADC f_write fail: %d\r\n",res); 
-        ctr += DOWNSAMPLING_FACTOR;
-        // downsample += DOWNSAMPLING_FACTOR;
-      }
+      #if ENABLE_AVERAGING == TRUE
+        for(ctr = 0; ctr < ADC_GRP1_BUF_DEPTH/2; )
+        {      
+          mean = 0;
+          // Build mean value
+          for(ctr2 = 0; ctr2 < DOWNSAMPLING_FACTOR; ctr2++)
+          {
+            mean += unfiltered[ctr + of + ctr2];
+          }
+          mean /= DOWNSAMPLING_FACTOR;
+          // store data
+          DBG("\rRead: %d samples", sampleCtr);
+          chsnprintf(str,32,"%1.5f ",mean);
+          size = strlen(str);
+          res = f_write(&fp, str, size, &size);
+          if(res != FR_OK) DBG("ADC f_write fail: %d\r\n",res); 
+          ctr += DOWNSAMPLING_FACTOR;
+        }
+      #else
+        for(ctr = 0; ctr < ADC_GRP1_BUF_DEPTH/2; )
+        {      
+          // store data
+          DBG("\rRead: %d samples", sampleCtr);
+          chsnprintf(str,32,"%1.5f ",unfiltered[ctr + of]);
+          size = strlen(str);
+          res = f_write(&fp, str, size, &size);
+          if(res != FR_OK) DBG("ADC f_write fail: %d\r\n",res); 
+          ctr += DOWNSAMPLING_FACTOR;
+        }
+      #endif
+      
       // stop sampling if reached num samples
       if( sampleCtr >= (nSamples-1) )
       {
@@ -291,7 +319,7 @@ void anInit(void)
 
   // Pin configuration
   #ifdef SINGLE_ENDED_CONFIG
-    palSetPadMode(GPIOD, 8, PAL_MODE_ALTERNATE(0) | PAL_MODE_INPUT_ANALOG );
+    palSetPadMode(ADC_GPIO_PORT, ADC_GPIO_PIN, PAL_MODE_ALTERNATE(0) | PAL_MODE_INPUT_ANALOG );
   #else
     palSetPadMode(GPIOB, 14, PAL_MODE_ALTERNATE(0) | PAL_MODE_INPUT_ANALOG );
     palSetPadMode(GPIOB, 15, PAL_MODE_ALTERNATE(0) | PAL_MODE_INPUT_ANALOG );
