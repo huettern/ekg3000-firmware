@@ -10,7 +10,7 @@
  * @date       12 Jan 2017
  * 
  *
- * @addtogroup MAIN
+ * @addtogroup STATE
  * @{
  */
 

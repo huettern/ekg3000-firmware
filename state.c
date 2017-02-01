@@ -10,7 +10,7 @@
  * @date       12 Jan 2017
  *             
  *
- * @addtogroup MAIN
+ * @addtogroup STATE
  * @brief Statemachine and LED controll
  * @{
  */
@@ -39,18 +39,36 @@ static BaseSequentialStream * dbgstrm = bssusb;
 /*===========================================================================*/
 /* settings                                                                */
 /*===========================================================================*/
+/**
+ * Time to sample an EKG using the short button
+ */
 #define AN_SAMPLE_SHORT_TIME 10
 
 /**
  * LED brightness in %
  */
 #define LED_BRIGHT 100
+/**
+ * LED brightness in %
+ */
 #define LED_DARK 0
 
+/**
+ * LED blink period
+ */
 #define LED_BLINK_PERIOD 200
 
+/**
+ * timeout for no connection
+ */
 #define NO_CONNECTION_TIMEOUT 20000 // ms
+/**
+ * timeout for no wps response
+ */
 #define NO_WPS_TIMEOUT 20000 // ms
+/**
+ * timeout for transmition fail
+ */
 #define TRANSMIT_TIMEOUT 60000 // ms
 
 /*===========================================================================*/

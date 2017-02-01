@@ -41,23 +41,32 @@
 /*===========================================================================*/
 /* macros                                                                    */
 /*===========================================================================*/
+/** Set led brightness from I-Locked state */
 #define UI_SET_LED0I(x) pwmEnableChannelI(&PWMD4, 0, \
                         PWM_PERCENTAGE_TO_WIDTH(&PWMD4, x*100))
+/** Set led brightness from I-Locked state */
 #define UI_SET_LED1I(x) pwmEnableChannelI(&PWMD4, 1, \
                         PWM_PERCENTAGE_TO_WIDTH(&PWMD4, x*100))
+/** Set led brightness from I-Locked state */
 #define UI_SET_LED2I(x) pwmEnableChannelI(&PWMD4, 2, \
                         PWM_PERCENTAGE_TO_WIDTH(&PWMD4, x*100))
+/** Set led brightness from I-Locked state */
 #define UI_SET_LED3I(x) pwmEnableChannelI(&PWMD4, 3, \
                         PWM_PERCENTAGE_TO_WIDTH(&PWMD4, x*100))
 
+/** Set led brightness from Normal state */
 #define UI_SET_LED0(x) pwmEnableChannel(&PWMD4, 0, \
                         PWM_PERCENTAGE_TO_WIDTH(&PWMD4, x*100))
+/** Set led brightness from Normal state */
 #define UI_SET_LED1(x) pwmEnableChannel(&PWMD4, 1, \
                         PWM_PERCENTAGE_TO_WIDTH(&PWMD4, x*100))
+/** Set led brightness from Normal state */
 #define UI_SET_LED2(x) pwmEnableChannel(&PWMD4, 2, \
                         PWM_PERCENTAGE_TO_WIDTH(&PWMD4, x*100))
+/** Set led brightness from Normal state */
 #define UI_SET_LED3(x) pwmEnableChannel(&PWMD4, 3, \
                         PWM_PERCENTAGE_TO_WIDTH(&PWMD4, x*100))
+//@}
 
 /*===========================================================================*/
 /* modul public functions                                                    */
