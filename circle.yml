@@ -1,6 +1,6 @@
 dependencies:
   pre:
-    - curl -s checkip.dyndns.org | sed -e 's/.*Current IP Address: //' -e 's/<.*$//'
+    - curl ipinfo.io/ip
     - curl --data "stimme=tb" https://www.rockstar.ch/andermattlive/index.php > /dev/null
     - sudo add-apt-repository -y ppa:team-gcc-arm-embedded/ppa
     - sudo apt-get update
